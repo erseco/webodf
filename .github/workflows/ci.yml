@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - master
@@ -15,14 +17,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Determine version
+        id: determine_version
+        run: |
+          if [[ ${GITHUB_REF} == refs/tags/v* ]]; then
+            echo "version_arg=" >> $GITHUB_OUTPUT
+          else
+            commit_hash=$(git rev-parse --short HEAD)
+            echo "version_arg=-DOVERRULED_WEBODF_VERSION=0.0.0-build${commit_hash}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Cache build directory
         id: cache-build
         uses: actions/cache@v4
         with:
           path: build
-          key: build-v1-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt') }}
+          key: build-v1-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt') }}-${{ steps.determine_version.outputs.version_arg }}
           restore-keys: |
-            build-v1-${{ runner.os }}-
+            build-v1-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt') }}-
 
       - name: Install dependencies
         run: |
@@ -30,11 +42,10 @@ jobs:
           sudo apt-get install -y cmake default-jdk libqt5webkit5-dev
 
       - name: Build webodf.js
-        if: steps.cache-build.outputs.cache-hit != 'true'
         run: |
           mkdir -p build
           cd build
-          cmake ..
+          cmake .. ${{ steps.determine_version.outputs.version_arg }}
           make webodf.js-target
 
       - name: Prepare deployment
