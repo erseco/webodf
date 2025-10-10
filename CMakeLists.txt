@@ -244,8 +244,7 @@ endif()
 ExternalProject_Add(
     Dojo
     DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-    URL "http://download.dojotoolkit.org/release-1.8.1/dojo-release-1.8.1-src.tar.gz"
-    URL_MD5 9b80b9a736b81c336accd832f3c3aea2
+    URL "https://download.dojotoolkit.org/release-1.10.4/dojo-release-1.10.4-src.tar.gz"
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
     INSTALL_COMMAND ""

@@ -15,14 +15,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache build directory
+        id: cache-build
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-v1-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            build-v1-${{ runner.os }}-
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake default-jdk libqt5webkit5-dev
 
       - name: Build webodf.js
+        if: steps.cache-build.outputs.cache-hit != 'true'
         run: |
-          mkdir build
+          mkdir -p build
           cd build
           cmake ..
           make webodf.js-target
