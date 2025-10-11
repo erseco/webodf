@@ -1,0 +1,3 @@
+cmake
+default-jdk
+libqt5webkit5-dev
