@@ -4,6 +4,11 @@ CMAKE_BUILD_TARGET ?= webodf.js-target
 CMAKE_FLAGS ?=
 OVERRIDE_VERSION ?= 0.0.0
 
+SERVE_HOST ?= 127.0.0.1
+SERVE_PORT ?= 8080
+SERVE_ROOT ?= $(CMAKE_BUILD_DIR)
+HTTP_SERVER ?= npx --yes http-server
+
 BREW_PACKAGES := cmake qt@5 node openjdk
 DEB_PACKAGES := cmake default-jdk libqt5webkit5-dev nodejs npm
 
@@ -11,7 +16,7 @@ CMAKE_VERSION_ARG := -DOVERRULED_WEBODF_VERSION=$(OVERRIDE_VERSION)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install-dependencies-mac install-dependencies-deb configure build clean
+.PHONY: help install-dependencies-mac install-dependencies-deb configure build serve clean
 
 help:
 	@echo "WebODF Make targets:"
@@ -19,6 +24,7 @@ help:
 	@echo "  make install-dependencies-deb   # Install build prerequisites using apt"
 	@echo "  make configure                  # Run CMake configure step"
 	@echo "  make build                      # Configure and build $(CMAKE_BUILD_TARGET)"
+	@echo "  make serve                      # Build and serve the viewer via Node http-server"
 	@echo "  make clean                      # Remove $(CMAKE_BUILD_DIR)"
 	@echo
 	@echo "Variables:"
@@ -39,6 +45,12 @@ configure:
 
 build: configure
 	$(CMAKE) --build $(CMAKE_BUILD_DIR) --target $(CMAKE_BUILD_TARGET)
+
+serve: build
+	$(CMAKE) -E copy_directory viewer $(SERVE_ROOT)/viewer
+	$(CMAKE) -E copy_directory examples $(SERVE_ROOT)/viewer/examples
+	@echo "Serving WebODF viewer on http://$(SERVE_HOST):$(SERVE_PORT)/viewer/"
+	$(HTTP_SERVER) $(SERVE_ROOT) -a $(SERVE_HOST) -p $(SERVE_PORT) -c-1 -o viewer/index.html
 
 clean:
 	rm -rf $(CMAKE_BUILD_DIR)
