@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>WebODF Viewer Demo</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="/webodf/webodf.js"></script>
+  <script src="./webodf.js"></script>
   <style>
     @namespace office url(urn:oasis:names:tc:opendocument:xmlns:office:1.0);
     @namespace text url(urn:oasis:names:tc:opendocument:xmlns:text:1.0);
@@ -57,14 +57,46 @@
       justify-content: center;
     }
     .odf-page {
-      width: min(100%, 21cm);
-      min-height: 29.7cm;
+      /* A4 defaults, will be overridden using document styles */
+      --page-width: 21cm;
+      --page-height: 29.7cm;
+      --margin-top: 2cm;
+      --margin-right: 2cm;
+      --margin-bottom: 2cm;
+      --margin-left: 2cm;
+      --header-height: 1.25cm;
+      --footer-height: 1.25cm;
+
+      width: min(100%, var(--page-width));
+      min-height: var(--page-height);
       background-color: #ffffff;
       border: 1px solid rgba(0, 0, 0, 0.08);
       box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
-      padding: 2cm;
+      /* Reserve areas for header and footer inside page */
+      padding: calc(var(--margin-top) + var(--header-height)) var(--margin-right)
+               calc(var(--margin-bottom) + var(--footer-height)) var(--margin-left);
       box-sizing: border-box;
       position: relative;
+      overflow: hidden;
+    }
+    .odf-header, .odf-footer {
+      position: absolute;
+      left: var(--margin-left);
+      right: var(--margin-right);
+      color: #6c757d;
+      font-size: 0.9rem;
+      line-height: 1.2;
+      display: flex;
+      align-items: center;
+    }
+    .odf-header {
+      top: var(--margin-top);
+      height: var(--header-height);
+    }
+    .odf-footer {
+      bottom: var(--margin-bottom);
+      height: var(--footer-height);
+      justify-content: flex-end;
     }
     .odf-page--empty::after {
       content: "Blank page";
@@ -77,10 +109,13 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-    .list-group-item a.active {
-      color: #0d6efd;
-      font-weight: 600;
-    }
+    .list-group-item a.active { color: #0d6efd; font-weight: 600; }
+    /* Improve contrast when active */
+    #sidebar .list-group-item.active { background-color: #0d6efd; border-color: #0d6efd; }
+    #sidebar .list-group-item.active a,
+    #sidebar .list-group-item.active a:hover,
+    #sidebar .list-group-item.active a:focus,
+    #sidebar .list-group-item.active a:visited { color: #fff !important; text-decoration: none; }
     #placeholder {
       max-width: 780px;
       line-height: 1.6;
@@ -123,6 +158,19 @@
   </div>
 
   <div id="viewer-container">
+    <div class="d-flex justify-content-end align-items-center mb-2" style="gap:.5rem;">
+      <label for="zoom-select" class="text-secondary small mb-0">Zoom</label>
+      <select id="zoom-select" class="form-select form-select-sm" style="width: 160px;">
+        <option value="fit-width">Fit width</option>
+        <option value="fit-page">Fit page</option>
+        <option value="200">200%</option>
+        <option value="150">150%</option>
+        <option value="125">125%</option>
+        <option value="100" selected>100%</option>
+        <option value="75">75%</option>
+        <option value="50">50%</option>
+      </select>
+    </div>
     <div id="loading-indicator" class="d-none">
       <div class="text-center">
         <div class="spinner-border text-primary" role="status">
@@ -168,12 +216,31 @@
     const openDefaultSampleButton = document.getElementById('open-default-sample');
     const DEFAULT_SAMPLE_PATH = 'examples/sample1.odt';
     let hasSuccessfulLoad = false;
+    const zoomSelect = document.getElementById('zoom-select');
 
     function setLoading(isLoading) {
       if (isLoading) {
         loadingIndicator.classList.remove('d-none');
       } else {
         loadingIndicator.classList.add('d-none');
+      }
+    }
+
+    function applyZoom(mode) {
+      const container = document.getElementById('viewer-container');
+      const width = container.clientWidth - 24; // padding
+      const height = container.clientHeight - 24;
+      if (mode === 'fit-width') {
+        odfCanvas.fitToWidth(width);
+        return;
+      }
+      if (mode === 'fit-page') {
+        odfCanvas.fitSmart(width, height);
+        return;
+      }
+      const v = parseFloat(mode);
+      if (!isNaN(v) && v > 0) {
+        odfCanvas.setZoomLevel(v / 100);
       }
     }
 
@@ -355,17 +422,273 @@
       return { wrapper, page };
     }
 
-    function paginateDocument() {
-      const canvasRoot = odfCanvas.getElement();
-      if (!canvasRoot) {
-        return;
+    // ---- Page style extraction (A4 defaults if missing) ----
+    function getPageLayoutInfo() {
+      const containerObj = odfCanvas.odfContainer && odfCanvas.odfContainer();
+      const canvasRoot = containerObj ? containerObj.rootElement : null;
+      const defaults = {
+        width: '21cm', height: '29.7cm',
+        marginTop: '2cm', marginRight: '2cm', marginBottom: '2cm', marginLeft: '2cm',
+        headerMinHeight: '1.25cm', footerMinHeight: '1.25cm', pageUsage: 'all'
+      };
+      if (!canvasRoot) return defaults;
+      const masterStyles = canvasRoot.querySelector('office\\:master-styles');
+      const master = masterStyles && masterStyles.querySelector('style\\:master-page');
+      if (!master) return defaults;
+
+      const layoutName = master.getAttribute('style:page-layout-name');
+      let pageLayout = null;
+      if (layoutName) {
+        try { pageLayout = canvasRoot.querySelector(`style\\:page-layout[style\\:name=\"${CSS.escape(layoutName)}\"]`); } catch (_) {}
+      }
+      if (!pageLayout) pageLayout = canvasRoot.querySelector('style\\:default-page-layout, style\\:page-layout');
+      const props = pageLayout && pageLayout.querySelector('style\\:page-layout-properties');
+      const read = (el, name, fallback) => (el && el.getAttribute(name)) || fallback;
+      const headerStyle = props && props.querySelector('style\\:header-style style\\:header-footer-properties');
+      const footerStyle = props && props.querySelector('style\\:footer-style style\\:header-footer-properties');
+      const info = {
+        width: read(props, 'fo:page-width', defaults.width),
+        height: read(props, 'fo:page-height', defaults.height),
+        marginTop: read(props, 'fo:margin-top', defaults.marginTop),
+        marginRight: read(props, 'fo:margin-right', defaults.marginRight),
+        marginBottom: read(props, 'fo:margin-bottom', defaults.marginBottom),
+        marginLeft: read(props, 'fo:margin-left', defaults.marginLeft),
+        pageUsage: read(props, 'style:page-usage', defaults.pageUsage),
+        headerMinHeight: headerStyle ? read(headerStyle, 'fo:min-height', defaults.headerMinHeight) : defaults.headerMinHeight,
+        footerMinHeight: footerStyle ? read(footerStyle, 'fo:min-height', defaults.footerMinHeight) : defaults.footerMinHeight,
+        master,
+        headerNode: master && master.querySelector('style\\:header'),
+        headerLeftNode: master && master.querySelector('style\\:header-left'),
+        footerNode: master && master.querySelector('style\\:footer'),
+        footerLeftNode: master && master.querySelector('style\\:footer-left'),
+        headerProps: headerStyle ? {
+          marginLeft: read(headerStyle, 'fo:margin-left', null),
+          marginRight: read(headerStyle, 'fo:margin-right', null),
+          marginTop: read(headerStyle, 'fo:margin-top', null),
+          marginBottom: read(headerStyle, 'fo:margin-bottom', null),
+          paddingLeft: read(headerStyle, 'fo:padding-left', null),
+          paddingRight: read(headerStyle, 'fo:padding-right', null),
+          paddingTop: read(headerStyle, 'fo:padding-top', null),
+          paddingBottom: read(headerStyle, 'fo:padding-bottom', null)
+        } : null,
+        footerProps: footerStyle ? {
+          marginLeft: read(footerStyle, 'fo:margin-left', null),
+          marginRight: read(footerStyle, 'fo:margin-right', null),
+          marginTop: read(footerStyle, 'fo:margin-top', null),
+          marginBottom: read(footerStyle, 'fo:margin-bottom', null),
+          paddingLeft: read(footerStyle, 'fo:padding-left', null),
+          paddingRight: read(footerStyle, 'fo:padding-right', null),
+          paddingTop: read(footerStyle, 'fo:padding-top', null),
+          paddingBottom: read(footerStyle, 'fo:padding-bottom', null)
+        } : null
+      };
+      // First page variant via next-style-name
+      const nextName = master.getAttribute('style:next-style-name');
+      if (nextName && masterStyles) {
+        let nextMaster = null;
+        try { nextMaster = masterStyles.querySelector(`style\\:master-page[style\\:name=\"${CSS.escape(nextName)}\"]`); } catch (_) {}
+        if (nextMaster) {
+          const ln2 = nextMaster.getAttribute('style:page-layout-name');
+          let pl2 = null; if (ln2) { try { pl2 = canvasRoot.querySelector(`style\\:page-layout[style\\:name=\"${CSS.escape(ln2)}\"]`); } catch (_) {} }
+          if (!pl2) pl2 = canvasRoot.querySelector('style\\:default-page-layout, style\\:page-layout');
+          const p2 = pl2 && pl2.querySelector('style\\:page-layout-properties');
+          const hs2 = p2 && p2.querySelector('style\\:header-style style\\:header-footer-properties');
+          const fs2 = p2 && p2.querySelector('style\\:footer-style style\\:header-footer-properties');
+          info.next = {
+            width: read(p2, 'fo:page-width', info.width),
+            height: read(p2, 'fo:page-height', info.height),
+            marginTop: read(p2, 'fo:margin-top', info.marginTop),
+            marginRight: read(p2, 'fo:margin-right', info.marginRight),
+            marginBottom: read(p2, 'fo:margin-bottom', info.marginBottom),
+            marginLeft: read(p2, 'fo:margin-left', info.marginLeft),
+            pageUsage: read(p2, 'style:page-usage', info.pageUsage),
+            headerMinHeight: hs2 ? read(hs2, 'fo:min-height', info.headerMinHeight) : info.headerMinHeight,
+            footerMinHeight: fs2 ? read(fs2, 'fo:min-height', info.footerMinHeight) : info.footerMinHeight,
+            master: nextMaster,
+            headerNode: nextMaster.querySelector('style\\:header'),
+            headerLeftNode: nextMaster.querySelector('style\\:header-left'),
+            footerNode: nextMaster.querySelector('style\\:footer'),
+            footerLeftNode: nextMaster.querySelector('style\\:footer-left'),
+            headerProps: hs2 ? {
+              marginLeft: read(hs2, 'fo:margin-left', null),
+              marginRight: read(hs2, 'fo:margin-right', null),
+              marginTop: read(hs2, 'fo:margin-top', null),
+              marginBottom: read(hs2, 'fo:margin-bottom', null),
+              paddingLeft: read(hs2, 'fo:padding-left', null),
+              paddingRight: read(hs2, 'fo:padding-right', null),
+              paddingTop: read(hs2, 'fo:padding-top', null),
+              paddingBottom: read(hs2, 'fo:padding-bottom', null)
+            } : null,
+            footerProps: fs2 ? {
+              marginLeft: read(fs2, 'fo:margin-left', null),
+              marginRight: read(fs2, 'fo:margin-right', null),
+              marginTop: read(fs2, 'fo:margin-top', null),
+              marginBottom: read(fs2, 'fo:margin-bottom', null),
+              paddingLeft: read(fs2, 'fo:padding-left', null),
+              paddingRight: read(fs2, 'fo:padding-right', null),
+              paddingTop: read(fs2, 'fo:padding-top', null),
+              paddingBottom: read(fs2, 'fo:padding-bottom', null)
+            } : null
+          };
+        }
+      }
+      return info;
+    }
+
+    // ---- Style resolution: break-before/after, widows/orphans, keep-* ----
+    function createStyleResolver() {
+      const containerObj = odfCanvas.odfContainer && odfCanvas.odfContainer();
+      const root = containerObj ? containerObj.rootElement : null;
+      const autoStyles = root && root.querySelector('office\\:automatic-styles');
+      const styles = root && root.querySelector('office\\:styles');
+      const cache = new Map();
+
+      function findStyleElement(name, family) {
+        if (!name) return null;
+        const fam = family || 'paragraph';
+        const sel = `style\\:style[style\\:name=\"${CSS.escape(name)}\"][style\\:family=\"${fam}\"]`;
+        return (autoStyles && autoStyles.querySelector(sel)) || (styles && styles.querySelector(sel));
       }
 
-      const officeText = canvasRoot.querySelector('office\\:text');
-      if (!officeText || officeText.getAttribute('data-paginated') === 'true') {
-        return;
+      function getPropsFromStyle(el, family) {
+        let propsSel = 'style\\:paragraph-properties';
+        if (family === 'table') propsSel = 'style\\:table-properties';
+        else if (family === 'section') propsSel = 'style\\:section-properties';
+        const p = el && el.querySelector(propsSel);
+        if (!p) return {};
+        const res = {
+          breakBefore: p.getAttribute('fo:break-before') || null,
+          breakAfter: p.getAttribute('fo:break-after') || null,
+          widows: p.getAttribute('fo:widows') || null,
+          orphans: p.getAttribute('fo:orphans') || null,
+          keepTogether: (p.getAttribute('fo:keep-together') || '').toLowerCase() === 'always',
+          keepWithNext: (p.getAttribute('fo:keep-with-next') || '').toLowerCase() === 'always'
+        };
+        return res;
       }
 
+      function resolve(name, family) {
+        const key = `${family || 'paragraph'}::${name || ''}`;
+        if (cache.has(key)) return cache.get(key);
+        let el = findStyleElement(name, family);
+        const merged = { breakBefore: null, breakAfter: null, widows: null, orphans: null, keepTogether: false, keepWithNext: false };
+        const visited = new Set();
+        while (el && !visited.has(el)) {
+          visited.add(el);
+          const props = getPropsFromStyle(el, family);
+          if (!merged.breakBefore && props.breakBefore) merged.breakBefore = props.breakBefore;
+          if (!merged.breakAfter && props.breakAfter) merged.breakAfter = props.breakAfter;
+          if (!merged.widows && props.widows) merged.widows = props.widows;
+          if (!merged.orphans && props.orphans) merged.orphans = props.orphans;
+          if (props.keepTogether) merged.keepTogether = true;
+          if (props.keepWithNext) merged.keepWithNext = true;
+          const parentName = el.getAttribute('style:parent-style-name');
+          el = parentName ? findStyleElement(parentName, family) : null;
+        }
+        cache.set(key, merged);
+        return merged;
+      }
+
+      function getDirectivesForNode(node) {
+        if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+          return { breakBefore: null, breakAfter: null, widows: 2, orphans: 2, keepTogether: false, keepWithNext: false };
+        }
+        let family = 'paragraph';
+        let styleName = node.getAttribute('text:style-name');
+        if (node.localName === 'table') {
+          family = 'table';
+          styleName = node.getAttribute('table:style-name') || styleName;
+        } else if (node.localName === 'section') {
+          family = 'section';
+          styleName = node.getAttribute('text:style-name') || styleName;
+        } else if (node.localName === 'list') {
+          family = 'paragraph';
+        }
+        const r = resolve(styleName || '', family) || {};
+        return {
+          breakBefore: r.breakBefore || null,
+          breakAfter: r.breakAfter || null,
+          widows: r.widows ? parseInt(r.widows, 10) : 2,
+          orphans: r.orphans ? parseInt(r.orphans, 10) : 2,
+          keepTogether: !!r.keepTogether,
+          keepWithNext: !!r.keepWithNext,
+          family
+        };
+      }
+
+      return { getDirectivesForNode };
+    }
+
+    function configurePageFromLayout(page, layout) {
+      page.style.setProperty('--page-width', layout.width);
+      page.style.setProperty('--page-height', layout.height);
+      page.style.setProperty('--margin-top', layout.marginTop);
+      page.style.setProperty('--margin-right', layout.marginRight);
+      page.style.setProperty('--margin-bottom', layout.marginBottom);
+      page.style.setProperty('--margin-left', layout.marginLeft);
+      page.style.setProperty('--header-height', layout.headerMinHeight);
+      page.style.setProperty('--footer-height', layout.footerMinHeight);
+    }
+
+    // ---- Page fields and assets ----
+    function cloneChildren(node) {
+      const frag = document.createDocumentFragment();
+      if (!node) return frag;
+      let child = node.firstChild;
+      while (child) { frag.appendChild(child.cloneNode(true)); child = child.nextSibling; }
+      return frag;
+    }
+
+    function replacePageFields(container, current, total) {
+      function toRoman(num, upper) {
+        if (num <= 0) return '0';
+        const romans = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+        let n = num, r=''; romans.forEach(([v,s])=>{ while(n>=v){ r+=s; n-=v; } });
+        return upper ? r : r.toLowerCase();
+      }
+      function toAlpha(num, upper){ let n=Math.max(1,num),s=''; while(n>0){ n-=1; s=String.fromCharCode(97+(n%26))+s; n=Math.floor(n/26);} return upper? s.toUpperCase():s; }
+      function fmt(n,f){ switch((f||'1')){ case 'i': return toRoman(n,false); case 'I': return toRoman(n,true); case 'a': return toAlpha(n,false); case 'A': return toAlpha(n,true); default: return String(n);} }
+
+      Array.from(container.querySelectorAll('text\\:page-number')).forEach(node => {
+        if (node.getAttribute('text:fixed') === 'true') return;
+        const select = node.getAttribute('text:select-page') || 'current';
+        const format = node.getAttribute('style:num-format') || '1';
+        let value = current; if (select==='previous') value = Math.max(1,current-1); if (select==='next') value = Math.min(total,current+1);
+        node.textContent = fmt(value, format);
+      });
+      Array.from(container.querySelectorAll('text\\:page-count')).forEach(node => {
+        const format = node.getAttribute('style:num-format') || '1';
+        node.textContent = fmt(total, format);
+      });
+    }
+
+    function getUrlFromBinaryDataElement(image) {
+      let node = image.firstChild; while (node) { if (node.namespaceURI==='urn:oasis:names:tc:opendocument:xmlns:office:1.0' && node.localName==='binary-data') { return 'data:image/png;base64,' + node.textContent.replace(/[\r\n\s]/g,''); } node = node.nextSibling; } return '';
+    }
+    function loadRegionImages(regionRoot) {
+      const container = odfCanvas.odfContainer && odfCanvas.odfContainer(); if (!container) return;
+      const XLINK_NS = 'http://www.w3.org/1999/xlink';
+      const images = regionRoot.querySelectorAll('draw\\:image');
+      images.forEach(img => {
+        const href = img.getAttributeNS(XLINK_NS, 'href');
+        function apply(url){ if(url){ img.style.backgroundImage = `url(${url})`; img.style.backgroundRepeat='no-repeat'; img.style.backgroundSize='100% 100%'; } }
+        if (href) { try { const part = container.getPart(href); part.onchange = p => apply(p && p.url); part.load(); } catch(_){} } else { apply(getUrlFromBinaryDataElement(img)); }
+      });
+    }
+    function positionRegionFrames(regionRoot) {
+      const frames = regionRoot.querySelectorAll('draw\\:frame');
+      frames.forEach(frame => {
+        const anchor = frame.getAttribute('text:anchor-type'); if (anchor==='as-char') return;
+        const x=frame.getAttribute('svg:x'), y=frame.getAttribute('svg:y'), w=frame.getAttribute('svg:width'), h=frame.getAttribute('svg:height');
+        const minH=frame.getAttribute('fo:min-height'), minW=frame.getAttribute('fo:min-width');
+        frame.style.position = (x||y)?'absolute':'relative'; if(x) frame.style.left=x; if(y) frame.style.top=y; if(w) frame.style.width=w; if(h) frame.style.height=h; if(minH) frame.style.minHeight=minH; if(minW) frame.style.minWidth=minW;
+      });
+    }
+    function finalizeRegion(regionBox){ regionBox.style.position='absolute'; positionRegionFrames(regionBox); loadRegionImages(regionBox); }
+
+    function paginateBySoftBreaks(officeText, layout) {
+      // Strictly respect explicit soft-page-break markers wherever they occur.
+      const pages = [];
       const fragments = [];
       while (officeText.firstChild) {
         const nextBreak = officeText.querySelector('text\\:soft-page-break');
@@ -385,14 +708,13 @@
           break;
         }
       }
-
       if (!fragments.length) {
         fragments.push(document.createDocumentFragment());
       }
-
       const docFragment = document.createDocumentFragment();
       fragments.forEach(fragment => {
         const { wrapper, page } = createPageStructure();
+        configurePageFromLayout(page, layout);
         if (fragment && fragment.childNodes.length) {
           const isEmpty = fragmentIsEffectivelyEmpty(fragment);
           if (!isEmpty) {
@@ -403,10 +725,207 @@
         } else {
           page.classList.add('odf-page--empty');
         }
+        pages.push(page);
         docFragment.appendChild(wrapper);
       });
+      officeText.appendChild(docFragment);
+      return pages;
+    }
+
+    function paginateByHeight(officeText, layout) {
+      const pages = [];
+      const docFragment = document.createDocumentFragment();
+      let { wrapper, page } = createPageStructure();
+      configurePageFromLayout(page, layout);
+      docFragment.appendChild(wrapper);
+      pages.push(page);
+
+      const resolver = createStyleResolver();
+
+      // Hidden page for measuring overflow using inner content box height
+      function toPx(value) {
+        if (!value) return 0;
+        const str = String(value).trim();
+        if (str.endsWith('cm')) return parseFloat(str) * 37.79527559; // 96dpi
+        if (str.endsWith('mm')) return parseFloat(str) * 3.779527559;
+        if (str.endsWith('in')) return parseFloat(str) * 96;
+        if (str.endsWith('pt')) return parseFloat(str) * (96/72);
+        if (str.endsWith('px')) return parseFloat(str);
+        const n = parseFloat(str); return isNaN(n) ? 0 : n;
+      }
+
+      const pageHeightPx = toPx(layout.height);
+      const pageWidthPx = toPx(layout.width);
+      const mt = toPx(layout.marginTop), mb = toPx(layout.marginBottom), ml = toPx(layout.marginLeft), mr = toPx(layout.marginRight);
+      const hh = toPx(layout.headerMinHeight), fh = toPx(layout.footerMinHeight);
+      const contentHeightPx = Math.max(0, pageHeightPx - (mt + mb + hh + fh));
+      const contentWidthPx = Math.max(0, pageWidthPx - (ml + mr));
+
+      const measure = document.createElement('div');
+      measure.style.position = 'absolute';
+      measure.style.visibility = 'hidden';
+      measure.style.left = '-100000px';
+      measure.style.width = contentWidthPx + 'px';
+      const measureInner = document.createElement('div');
+      measureInner.style.height = contentHeightPx + 'px';
+      measureInner.style.overflow = 'hidden';
+      measure.appendChild(measureInner);
+      odfViewer.appendChild(measure);
+
+      function wouldOverflow(node){
+        const clone = node.cloneNode(true);
+        measureInner.appendChild(clone);
+        const overflow = measureInner.scrollHeight > measureInner.clientHeight;
+        measureInner.removeChild(clone);
+        return overflow;
+      }
+
+      // Helpers for splitting paragraphs
+      function copyAttrs(src, dst){ if(!src || !dst || !src.attributes) return; for(let i=0;i<src.attributes.length;i+=1){ const a=src.attributes[i]; dst.setAttributeNS(a.namespaceURI, a.name, a.value);} }
+      function getTextLen(node){ if(node.nodeType===Node.TEXT_NODE) return node.nodeValue.length; let sum=0; for(let c=node.firstChild;c;c=c.nextSibling){ sum+=getTextLen(c);} return sum; }
+      function cloneHeadChars(node, limit){ if(limit<=0) return null; if(node.nodeType===Node.TEXT_NODE){ return document.createTextNode(node.nodeValue.slice(0, limit)); } const el=document.createElementNS(node.namespaceURI, node.nodeName.toLowerCase()); copyAttrs(node, el); let rem=limit; for(let child=node.firstChild; child && rem>0; child=child.nextSibling){ const len = child.nodeType===Node.TEXT_NODE ? child.nodeValue.length : getTextLen(child); const take=Math.min(rem, len); const part=cloneHeadChars(child, take); if(part) el.appendChild(part); rem -= take; } return el; }
+      function cloneTailChars(node, start){ let idx=start; if(idx<=0) return node.cloneNode(true); if(node.nodeType===Node.TEXT_NODE){ return document.createTextNode(node.nodeValue.slice(idx)); } const el=document.createElementNS(node.namespaceURI, node.nodeName.toLowerCase()); copyAttrs(node, el); for(let child=node.firstChild; child; child=child.nextSibling){ const len = child.nodeType===Node.TEXT_NODE ? child.nodeValue.length : getTextLen(child); if(idx>=len){ idx -= len; continue; } const part=cloneTailChars(child, idx); if(part) el.appendChild(part); idx=0; let sib=child.nextSibling; while(sib){ el.appendChild(sib.cloneNode(true)); sib=sib.nextSibling; } break; } return el; }
+      function countLines(el){ const r=document.createRange(); r.selectNodeContents(el); const rects=Array.from(r.getClientRects()); const tops=new Set(rects.map(rc=>Math.round(rc.top))); return tops.size || (el.textContent?1:0); }
+      function trySplitParagraph(node, page){ const dir=resolver.getDirectivesForNode(node); const wid=dir.widows||2, orp=dir.orphans||2; const total=getTextLen(node); if(total===0) return null; let lo=1, hi=total, best=0; while(lo<=hi){ const mid=Math.floor((lo+hi)/2); const head=cloneHeadChars(node, mid); page.appendChild(head); const over = page.scrollHeight > page.clientHeight; page.removeChild(head); if(!over){ best=mid; lo=mid+1; } else { hi=mid-1; } } if(best<=0 || best>=total) return null; const head=cloneHeadChars(node, best); const tail=cloneTailChars(node, best); page.appendChild(head); const linesHead = countLines(head); page.removeChild(head); const probe=document.createElement('div'); probe.className='odf-page'; configurePageFromLayout(probe, layout); probe.style.position='absolute'; probe.style.visibility='hidden'; probe.style.left='-100000px'; odfViewer.appendChild(probe); probe.appendChild(tail.cloneNode(true)); const linesTail = countLines(probe.firstChild); odfViewer.removeChild(probe); if(linesHead < orp || linesTail < wid){ return null; } return { first: head, second: tail }; }
+
+      // Build queue of nodes
+      const blocks = [];
+      while (officeText.firstChild) {
+        const n = officeText.firstChild; officeText.removeChild(n);
+        if (n.nodeType === Node.ELEMENT_NODE && n.namespaceURI === TEXT_NS && n.localName === 'soft-page-break') continue;
+        blocks.push(n);
+      }
+
+      function groupWouldOverflow(nodes){
+        const frag = document.createDocumentFragment();
+        nodes.forEach(n => frag.appendChild(n.cloneNode(true)));
+        measureInner.appendChild(frag);
+        const overflow = measureInner.scrollHeight > measureInner.clientHeight;
+        while (measureInner.firstChild) measureInner.removeChild(measureInner.firstChild);
+        return overflow;
+      }
+
+      while (blocks.length) {
+        let node = blocks.shift();
+        const dir = resolver.getDirectivesForNode(node);
+        const blockish = node.nodeType===Node.ELEMENT_NODE && ['p','h','list','table','section'].includes(node.localName||'');
+
+        if (dir.breakBefore === 'page' && page.childNodes.length > 0) {
+          ({wrapper, page} = createPageStructure()); configurePageFromLayout(page, layout); docFragment.appendChild(wrapper); pages.push(page);
+        }
+
+        // Build keep-with-next cluster
+        let cluster = [node];
+        if (dir.keepWithNext) {
+          const snapshot = [];
+          let i = 0;
+          while (i < blocks.length) {
+            const n2 = blocks[i];
+            const d2 = resolver.getDirectivesForNode(n2);
+            if (!d2.keepWithNext) { snapshot.push(n2); cluster.push(n2); i += 1; break; }
+            cluster.push(n2); snapshot.push(n2); i += 1;
+          }
+          // consume from queue the nodes added to cluster
+          for (let k = 0; k < snapshot.length; k += 1) { blocks.shift(); }
+        }
+
+        // If cluster must stay together and doesn't fit, push to next page
+        const keepTogetherCluster = cluster.some(n => resolver.getDirectivesForNode(n).keepTogether);
+        if (cluster.length > 1 && (dir.keepWithNext || keepTogetherCluster)) {
+          if (groupWouldOverflow(cluster)) {
+            ({wrapper, page} = createPageStructure()); configurePageFromLayout(page, layout); docFragment.appendChild(wrapper); pages.push(page);
+          }
+          cluster.forEach(n => page.appendChild(n));
+          const lastDir = resolver.getDirectivesForNode(cluster[cluster.length-1]);
+          if (lastDir.breakAfter === 'page') { ({wrapper, page} = createPageStructure()); configurePageFromLayout(page, layout); docFragment.appendChild(wrapper); pages.push(page); }
+          continue;
+        }
+
+        // Single node handling
+        if (blockish && wouldOverflow(node)) {
+          // keep-together forces moving whole block
+          if (dir.keepTogether || node.localName === 'table' || node.localName === 'section' || node.localName === 'list') {
+            ({wrapper, page} = createPageStructure()); configurePageFromLayout(page, layout); docFragment.appendChild(wrapper); pages.push(page);
+          } else if ((node.localName === 'p' || node.localName === 'h') && getTextLen(node) > 0) {
+            const parts = trySplitParagraph(node, page);
+            if (parts) {
+              page.appendChild(parts.first);
+              ({wrapper, page} = createPageStructure()); configurePageFromLayout(page, layout); docFragment.appendChild(wrapper); pages.push(page);
+              blocks.unshift(parts.second);
+              continue;
+            } else {
+              ({wrapper, page} = createPageStructure()); configurePageFromLayout(page, layout); docFragment.appendChild(wrapper); pages.push(page);
+            }
+          } else {
+            ({wrapper, page} = createPageStructure()); configurePageFromLayout(page, layout); docFragment.appendChild(wrapper); pages.push(page);
+          }
+        }
+        page.appendChild(node);
+        if (dir.breakAfter === 'page') {
+          ({wrapper, page} = createPageStructure()); configurePageFromLayout(page, layout); docFragment.appendChild(wrapper); pages.push(page);
+        }
+      }
 
       officeText.appendChild(docFragment);
+      measure.remove();
+      return pages;
+    }
+
+    function applyHeaderFooterToPages(pages, layout) {
+      const total = pages.length;
+      pages.forEach((page, index) => {
+        const active = (index === 0 || !layout.next) ? layout : layout.next;
+        configurePageFromLayout(page, active);
+        const even = ((index + 1) % 2) === 0;
+        const useLeft = active.pageUsage === 'mirrored' && even;
+        const headerBox = document.createElement('div'); headerBox.className='odf-header';
+        const footerBox = document.createElement('div'); footerBox.className='odf-footer';
+        const headerTpl = useLeft && active.headerLeftNode ? active.headerLeftNode : (active.headerNode || active.headerLeftNode);
+        const footerTpl = useLeft && active.footerLeftNode ? active.footerLeftNode : (active.footerNode || active.footerLeftNode);
+        if (headerTpl) { const clonedH = cloneChildren(headerTpl); replacePageFields(clonedH, index+1, total); headerBox.appendChild(clonedH); }
+        if (footerTpl) { const clonedF = cloneChildren(footerTpl); replacePageFields(clonedF, index+1, total); footerBox.appendChild(clonedF); }
+        if (active.headerProps) { const hp=active.headerProps; if (hp.paddingLeft) headerBox.style.paddingLeft=hp.paddingLeft; if(hp.paddingRight) headerBox.style.paddingRight=hp.paddingRight; if(hp.paddingTop) headerBox.style.paddingTop=hp.paddingTop; if(hp.paddingBottom) headerBox.style.paddingBottom=hp.paddingBottom; if(hp.marginTop) headerBox.style.top=`calc(var(--margin-top) + ${hp.marginTop})`; if(hp.marginLeft) headerBox.style.left=`calc(var(--margin-left) + ${hp.marginLeft})`; if(hp.marginRight) headerBox.style.right=`calc(var(--margin-right) + ${hp.marginRight})`; }
+        if (active.footerProps) { const fp=active.footerProps; if (fp.paddingLeft) footerBox.style.paddingLeft=fp.paddingLeft; if(fp.paddingRight) footerBox.style.paddingRight=fp.paddingRight; if(fp.paddingTop) footerBox.style.paddingTop=fp.paddingTop; if(fp.paddingBottom) footerBox.style.paddingBottom=fp.paddingBottom; if(fp.marginBottom) footerBox.style.bottom=`calc(var(--margin-bottom) + ${fp.marginBottom})`; if(fp.marginLeft) footerBox.style.left=`calc(var(--margin-left) + ${fp.marginLeft})`; if(fp.marginRight) footerBox.style.right=`calc(var(--margin-right) + ${fp.marginRight})`; }
+        page.appendChild(headerBox); page.appendChild(footerBox);
+        finalizeRegion(headerBox); finalizeRegion(footerBox);
+        // Adjust header/footer heights to actual content if larger than min
+        const hh = Math.max(headerBox.scrollHeight, 0); const fh = Math.max(footerBox.scrollHeight, 0);
+        const headerTarget = parseFloat(getComputedStyle(page).getPropertyValue('--header-height')) || 0;
+        const footerTarget = parseFloat(getComputedStyle(page).getPropertyValue('--footer-height')) || 0;
+        if (hh > headerTarget) { page.style.setProperty('--header-height', hh + 'px'); }
+        if (fh > footerTarget) { page.style.setProperty('--footer-height', fh + 'px'); }
+      });
+    }
+
+    function paginateDocument() {
+      const containerObj = odfCanvas.odfContainer && odfCanvas.odfContainer();
+      const canvasRoot = containerObj ? containerObj.rootElement : null;
+      if (!canvasRoot) {
+        return;
+      }
+
+      const officeText = canvasRoot.querySelector('office\\:text');
+      if (!officeText || officeText.getAttribute('data-paginated') === 'true') {
+        return;
+      }
+      // Remove default global header/footer injected by OdfCanvas (if any)
+      Array.from(document.querySelectorAll('.webodf-header, .webodf-footer')).forEach(n => n.remove());
+
+      // Read layout from styles
+      const layout = getPageLayoutInfo();
+
+      // Snapshot original content for fallback
+      const original = document.createDocumentFragment(); Array.from(officeText.childNodes).forEach(n => original.appendChild(n.cloneNode(true)));
+
+      // Try soft break pagination first
+      let pages = paginateBySoftBreaks(officeText, layout);
+      if (pages.length <= 1) {
+        while (officeText.firstChild) officeText.removeChild(officeText.firstChild);
+        officeText.appendChild(original.cloneNode(true));
+        pages = paginateByHeight(officeText, layout);
+      }
+
+      applyHeaderFooterToPages(pages, layout);
       officeText.setAttribute('data-paginated', 'true');
       odfCanvas.refreshSize();
     }
@@ -477,6 +996,8 @@
         try {
           paginateDocument();
           hasSuccessfulLoad = true;
+          // default to fit-width for better readability
+          applyZoom(zoomSelect.value || 'fit-width');
         } catch (error) {
           console.error('Failed to paginate the document.', error);
         } finally {
@@ -593,6 +1114,17 @@
     }
 
     initializeFromQueryParam();
+
+    // Zoom controls
+    if (zoomSelect) {
+      zoomSelect.addEventListener('change', () => applyZoom(zoomSelect.value));
+      window.addEventListener('resize', () => {
+        const val = zoomSelect.value;
+        if (val === 'fit-width' || val === 'fit-page') {
+          applyZoom(val);
+        }
+      });
+    }
   </script>
 </body>
 </html>

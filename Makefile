@@ -16,7 +16,7 @@ CMAKE_VERSION_ARG := -DOVERRULED_WEBODF_VERSION=$(OVERRIDE_VERSION)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install-dependencies-mac install-dependencies-deb configure build serve clean
+.PHONY: help install-dependencies-mac install-dependencies-deb configure build serve copy-webodf-to-viewer clean
 
 help:
 	@echo "WebODF Make targets:"
@@ -25,6 +25,7 @@ help:
 	@echo "  make configure                  # Run CMake configure step"
 	@echo "  make build                      # Configure and build $(CMAKE_BUILD_TARGET)"
 	@echo "  make serve                      # Build and serve the viewer via Node http-server"
+	@echo "  make copy-webodf-to-viewer      # Copy built webodf.js into ./viewer for local servers"
 	@echo "  make clean                      # Remove $(CMAKE_BUILD_DIR)"
 	@echo
 	@echo "Variables:"
@@ -48,9 +49,15 @@ build: configure
 
 serve: build
 	$(CMAKE) -E copy_directory viewer $(SERVE_ROOT)/viewer
-	$(CMAKE) -E copy_directory examples $(SERVE_ROOT)/viewer/examples
+	# Ensure the built webodf.js is available next to viewer/index.html
+	$(CMAKE) -E copy $(CMAKE_BUILD_DIR)/webodf/webodf.js $(SERVE_ROOT)/viewer/webodf.js
 	@echo "Serving WebODF viewer on http://$(SERVE_HOST):$(SERVE_PORT)/viewer/"
 	$(HTTP_SERVER) $(SERVE_ROOT) -a $(SERVE_HOST) -p $(SERVE_PORT) -c-1 -o viewer/index.html
+
+# Copies the built JS into the repository's viewer/ folder. Useful if you
+# run your own static server from the repo root (so that /viewer/webodf.js resolves).
+copy-webodf-to-viewer: build
+	$(CMAKE) -E copy $(CMAKE_BUILD_DIR)/webodf/webodf.js viewer/webodf.js
 
 clean:
 	rm -rf $(CMAKE_BUILD_DIR)
