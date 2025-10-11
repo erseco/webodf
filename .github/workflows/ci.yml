@@ -68,6 +68,7 @@ jobs:
         run: |
           mkdir -p build
           cd build
+          rm -f CMakeCache.txt
           cmake .. ${{ steps.determine_version.outputs.version_arg }}
           make webodf.js-target
 
