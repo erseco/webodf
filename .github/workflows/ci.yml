@@ -2,12 +2,17 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - "**"
+      - "!gh-pages"
     tags:
       - 'v*'
   pull_request:
     branches:
-      - master
+      - "**"
+  delete:
+    # Run on branch deletions to clean gh-pages
+    # no filters -> receives both branch and tag deletions
+    {}
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -70,17 +75,112 @@ jobs:
           cmake .. ${{ steps.determine_version.outputs.version_arg }}
           make webodf.js-target
 
-      - name: Prepare deployment
+      - name: Checkout gh-pages into deploy
         if: github.event_name == 'push'
+        uses: actions/checkout@v5
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: deploy
+
+      - name: Prepare deployment (per-branch folder)
+        if: github.event_name == 'push'
+        env:
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          mkdir -p deploy/webodf
-          cp build/webodf/webodf.js deploy/webodf/
-          cp viewer/index.html deploy/
-          # Include example ODT files for the demo viewer
-          cp -r examples deploy/
+          set -euo pipefail
+          mkdir -p deploy
+          # Determine branch name if push is to a branch
+          BRANCH_DIR="$REF_NAME"
+          if [[ "$REF" == refs/heads/* ]]; then
+            BRANCH_DIR="${REF#refs/heads/}"
+          fi
+
+          echo "Deploying into folder: ${BRANCH_DIR}"
+
+          # Ensure target folders exist
+          mkdir -p "deploy/${BRANCH_DIR}/webodf"
+          mkdir -p "deploy/${BRANCH_DIR}/examples"
+
+          # Copy artifacts
+          cp build/webodf/webodf.js "deploy/${BRANCH_DIR}/webodf/"
+          cp viewer/index.html "deploy/${BRANCH_DIR}/index.html"
+          cp -r examples/. "deploy/${BRANCH_DIR}/examples/"
+
+          # Install root branch selector page
+          cp viewer/branches.html deploy/index.html
+
+          # Update branches.json (only for branch pushes)
+          if [[ "$REF" == refs/heads/* ]]; then
+            python3 - <<'PY'
+import json, os, sys
+path = os.path.join('deploy', 'branches.json')
+try:
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    if not isinstance(data, list):
+        data = []
+except FileNotFoundError:
+    data = []
+
+branch = os.environ.get('REF_NAME')
+if branch and branch not in data:
+    data.append(branch)
+data = sorted(set(data))
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(data, f)
+PY
+          fi
 
       - name: Deploy to gh-pages
         if: github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./deploy
+
+  cleanup-gh-pages:
+    if: github.event_name == 'delete' && github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v5
+        with:
+          ref: gh-pages
+          path: deploy
+
+      - name: Remove deleted branch folder and update index
+        env:
+          DELETED_REF: ${{ github.event.ref }}
+        run: |
+          set -euo pipefail
+          BRANCH_DIR="$DELETED_REF"
+          echo "Removing folder: ${BRANCH_DIR}"
+          rm -rf "deploy/${BRANCH_DIR}"
+
+          # Update branches.json to remove the branch
+          python3 - <<'PY'
+import json, os, sys
+root = 'deploy'
+path = os.path.join(root, 'branches.json')
+try:
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    if not isinstance(data, list):
+        data = []
+except FileNotFoundError:
+    data = []
+
+deleted = os.environ.get('DELETED_REF')
+if deleted in data:
+    data = [b for b in data if b != deleted]
+data = sorted(set(data))
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(data, f)
+PY
+
+      - name: Publish cleanup to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
