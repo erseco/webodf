@@ -9,10 +9,6 @@ on:
   pull_request:
     branches:
       - "**"
-  delete:
-    # Run on branch deletions to clean gh-pages
-    # no filters -> receives both branch and tag deletions
-    {}
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -76,105 +72,25 @@ jobs:
           make webodf.js-target
 
       - name: Checkout gh-pages into deploy
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
         uses: actions/checkout@v5
         continue-on-error: true
         with:
           ref: gh-pages
           path: deploy
 
-      - name: Prepare deployment (per-branch folder)
-        if: github.event_name == 'push'
-        env:
-          REF: ${{ github.ref }}
-          REF_NAME: ${{ github.ref_name }}
+      - name: Prepare deployment
+        if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
         run: |
           set -euo pipefail
-          mkdir -p deploy
-          # Determine branch name if push is to a branch
-          BRANCH_DIR="$REF_NAME"
-          if [[ "$REF" == refs/heads/* ]]; then
-            BRANCH_DIR="${REF#refs/heads/}"
-          fi
-
-          echo "Deploying into folder: ${BRANCH_DIR}"
-
-          # Ensure target folders exist
-          mkdir -p "deploy/${BRANCH_DIR}/webodf"
-          mkdir -p "deploy/${BRANCH_DIR}/examples"
-
           # Copy artifacts
-          cp build/webodf/webodf.js "deploy/${BRANCH_DIR}/webodf/"
-          cp viewer/index.html "deploy/${BRANCH_DIR}/index.html"
-          cp -r examples/. "deploy/${BRANCH_DIR}/examples/"
-
-          # Install root branch selector page
-          cp viewer/branches.html deploy/index.html
-
-          # Rebuild branches.json index from existing subfolders (branch pushes only)
-          if [[ "$REF" == refs/heads/* ]]; then
-            branches_file="deploy/branches.json"
-            printf '[' > "$branches_file"
-            first=1
-            # list only immediate subdirectories under deploy/
-            for d in deploy/*/; do
-              # strip trailing slash and path
-              b=${d%/}
-              b=${b#deploy/}
-              # skip hidden or special paths just in case
-              if [[ "$b" == ".git" || "$b" == "." || "$b" == ".." ]]; then
-                continue
-              fi
-              if [[ $first -eq 0 ]]; then printf ', ' >> "$branches_file"; fi
-              printf '"%s"' "$b" >> "$branches_file"
-              first=0
-            done
-            printf ']\n' >> "$branches_file"
-          fi
+          mkdir -p deploy/webodf
+          cp build/webodf/webodf.js deploy/webodf/
+          cp viewer/index.html deploy/index.html
+          cp -r examples/. deploy/examples/
 
       - name: Deploy to gh-pages
-        if: github.event_name == 'push'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./deploy
-
-  cleanup-gh-pages:
-    if: github.event_name == 'delete' && github.event.ref_type == 'branch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout gh-pages
-        uses: actions/checkout@v5
-        with:
-          ref: gh-pages
-          path: deploy
-
-      - name: Remove deleted branch folder and update index
-        env:
-          DELETED_REF: ${{ github.event.ref }}
-        run: |
-          set -euo pipefail
-          BRANCH_DIR="$DELETED_REF"
-          echo "Removing folder: ${BRANCH_DIR}"
-          rm -rf "deploy/${BRANCH_DIR}"
-
-          # Rebuild branches.json from remaining folders
-          branches_file="deploy/branches.json"
-          printf '[' > "$branches_file"
-          first=1
-          for d in deploy/*/; do
-            b=${d%/}
-            b=${b#deploy/}
-            if [[ "$b" == ".git" || "$b" == "." || "$b" == ".." ]]; then
-              continue
-            fi
-            if [[ $first -eq 0 ]]; then printf ', ' >> "$branches_file"; fi
-            printf '"%s"' "$b" >> "$branches_file"
-            first=0
-          done
-          printf ']\n' >> "$branches_file"
-
-      - name: Publish cleanup to gh-pages
+        if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
