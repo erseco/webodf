@@ -37,9 +37,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build
-          key: build-v1-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt') }}-${{ steps.determine_version.outputs.version_arg }}
+          key: build-v1-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}-${{ steps.determine_version.outputs.version_arg }}
           restore-keys: |
-            build-v1-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt') }}-
+            build-v1-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}-
 
       - name: Restore APT cache
         uses: actions/cache@v4
