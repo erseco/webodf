@@ -2,9 +2,8 @@
 # builds and packages programs that use WebODF.
 
 # WebODF is mostly a JavaScript project. CMake needs to know about the C++ parts
-project (WebODF C CXX)
-
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.5)
+project(WebODF C CXX)
 
 # Require separate build dir
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
