@@ -86,7 +86,8 @@ jobs:
           # Copy artifacts
           mkdir -p deploy/webodf
           cp build/webodf/webodf.js deploy/webodf/
-          cp viewer/index.html deploy/index.html
+          # cp viewer/index.html deploy/index.html
+          cp -r viewer/. deploy/
           cp -r examples/. deploy/examples/
 
       - name: Deploy to gh-pages
