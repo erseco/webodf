@@ -111,26 +111,25 @@ jobs:
           # Install root branch selector page
           cp viewer/branches.html deploy/index.html
 
-          # Update branches.json (only for branch pushes)
+          # Rebuild branches.json index from existing subfolders (branch pushes only)
           if [[ "$REF" == refs/heads/* ]]; then
-            python3 - <<'PY'
-import json, os, sys
-path = os.path.join('deploy', 'branches.json')
-try:
-    with open(path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    if not isinstance(data, list):
-        data = []
-except FileNotFoundError:
-    data = []
-
-branch = os.environ.get('REF_NAME')
-if branch and branch not in data:
-    data.append(branch)
-data = sorted(set(data))
-with open(path, 'w', encoding='utf-8') as f:
-    json.dump(data, f)
-PY
+            branches_file="deploy/branches.json"
+            printf '[' > "$branches_file"
+            first=1
+            # list only immediate subdirectories under deploy/
+            for d in deploy/*/; do
+              # strip trailing slash and path
+              b=${d%/}
+              b=${b#deploy/}
+              # skip hidden or special paths just in case
+              if [[ "$b" == ".git" || "$b" == "." || "$b" == ".." ]]; then
+                continue
+              fi
+              if [[ $first -eq 0 ]]; then printf ', ' >> "$branches_file"; fi
+              printf '"%s"' "$b" >> "$branches_file"
+              first=0
+            done
+            printf ']\n' >> "$branches_file"
           fi
 
       - name: Deploy to gh-pages
@@ -159,26 +158,21 @@ PY
           echo "Removing folder: ${BRANCH_DIR}"
           rm -rf "deploy/${BRANCH_DIR}"
 
-          # Update branches.json to remove the branch
-          python3 - <<'PY'
-import json, os, sys
-root = 'deploy'
-path = os.path.join(root, 'branches.json')
-try:
-    with open(path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    if not isinstance(data, list):
-        data = []
-except FileNotFoundError:
-    data = []
-
-deleted = os.environ.get('DELETED_REF')
-if deleted in data:
-    data = [b for b in data if b != deleted]
-data = sorted(set(data))
-with open(path, 'w', encoding='utf-8') as f:
-    json.dump(data, f)
-PY
+          # Rebuild branches.json from remaining folders
+          branches_file="deploy/branches.json"
+          printf '[' > "$branches_file"
+          first=1
+          for d in deploy/*/; do
+            b=${d%/}
+            b=${b#deploy/}
+            if [[ "$b" == ".git" || "$b" == "." || "$b" == ".." ]]; then
+              continue
+            fi
+            if [[ $first -eq 0 ]]; then printf ', ' >> "$branches_file"; fi
+            printf '"%s"' "$b" >> "$branches_file"
+            first=0
+          done
+          printf ']\n' >> "$branches_file"
 
       - name: Publish cleanup to gh-pages
         uses: peaceiris/actions-gh-pages@v4
