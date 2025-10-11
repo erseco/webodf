@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <title>WebODF Viewer Demo</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="webodf/webodf.js"></script>
   <style>
     body {
       padding-top: 5rem;
@@ -22,12 +21,12 @@
     #viewer-container {
       margin-left: 250px;
       padding: 1rem;
+      height: calc(100vh - 5rem);
     }
-    #drop-zone {
-      border: 2px dashed #ccc;
-      padding: 2rem;
-      text-align: center;
-      margin-bottom: 1rem;
+    #viewer-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
     }
   </style>
 </head>
@@ -36,58 +35,35 @@
   <div id="sidebar">
     <h5>Sample ODT Files</h5>
     <ul class="list-group">
-      <li class="list-group-item"><a href="#" data-url="examples/sample1.odt">Sample 1</a></li>
-      <li class="list-group-item"><a href="#" data-url="examples/sample2.odt">Sample 2</a></li>
-      <li class="list-group-item"><a href="#" data-url="examples/sample3.odt">Sample 3</a></li>
+      <li class="list-group-item"><a href="#" data-url="examples/sample1.odt">Sample 1 (100kB)</a></li>
+      <li class="list-group-item"><a href="#" data-url="examples/sample2.odt">Sample 2 (500kB)</a></li>
+      <li class="list-group-item"><a href="#" data-url="examples/sample3.odt">Sample 3 (1MB)</a></li>
     </ul>
     <hr>
-    <div id="drop-zone">
-      Drag and drop an ODT file here
-    </div>
+    <p>To view a local file, drag and drop it into the viewer frame on the right.</p>
   </div>
 
-  <div id="viewer-container">
-    <div id="odf-viewer"></div>
+  <div id="viewer-container" id="viewer-container">
+    <iframe id="viewer-iframe" src="viewerjs-0.5.8/ViewerJS/#../../examples/sample1.odt"></iframe>
   </div>
 
   <script>
-    const odfViewer = document.getElementById('odf-viewer');
-    const odfCanvas = new odf.OdfCanvas(odfViewer);
-
     document.querySelectorAll('.list-group-item a').forEach(item => {
       item.addEventListener('click', event => {
         event.preventDefault();
         const url = event.target.getAttribute('data-url');
-        odfCanvas.load(url);
+        const viewerContainer = document.getElementById('viewer-container');
+        const oldIframe = document.getElementById('viewer-iframe');
+        viewerContainer.removeChild(oldIframe);
+
+        const newIframe = document.createElement('iframe');
+        newIframe.id = 'viewer-iframe';
+        newIframe.src = `viewerjs-0.5.8/ViewerJS/#../../${url}`;
+        newIframe.style.width = '100%';
+        newIframe.style.height = '100%';
+        newIframe.style.border = 'none';
+        viewerContainer.appendChild(newIframe);
       });
-    });
-
-    const dropZone = document.getElementById('drop-zone');
-
-    dropZone.addEventListener('dragover', event => {
-      event.preventDefault();
-      dropZone.style.backgroundColor = '#e9ecef';
-    });
-
-    dropZone.addEventListener('dragleave', event => {
-      event.preventDefault();
-      dropZone.style.backgroundColor = 'transparent';
-    });
-
-    dropZone.addEventListener('drop', event => {
-      event.preventDefault();
-      dropZone.style.backgroundColor = 'transparent';
-      const file = event.dataTransfer.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          const arrayBuffer = e.target.result;
-          const blob = new Blob([arrayBuffer], { type: 'application/vnd.oasis.opendocument.text' });
-          const url = URL.createObjectURL(blob);
-          odfCanvas.load(url);
-        };
-        reader.readAsArrayBuffer(file);
-      }
     });
   </script>
 </body>
