@@ -524,13 +524,15 @@
     /**
      * @param {!Element} odfbody
      * @param {!CSSStyleSheet} stylesheet
+     * @param {function():!string=} styleIdGenerator
      * @return {undefined}
      **/
-    function modifyDrawElements(odfbody, stylesheet) {
+    function modifyDrawElements(odfbody, stylesheet, styleIdGenerator) {
         var node,
             /**@type{!Array.<!Element>}*/
             drawElements = [],
-            i;
+            i,
+            /**@type{!string}*/styleId;
         // find all the draw:* elements
         node = odfbody.firstElementChild;
         while (node && node !== odfbody) {
@@ -551,7 +553,8 @@
         // adjust all the frame positions
         for (i = 0; i < drawElements.length; i += 1) {
             node = drawElements[i];
-            setDrawElementPosition('frame' + String(i), node, stylesheet);
+            styleId = styleIdGenerator ? styleIdGenerator() : 'frame' + String(i);
+            setDrawElementPosition(styleId, node, stylesheet);
         }
         formatParagraphAnchors(odfbody);
     }
@@ -841,7 +844,36 @@
             /**@type{!gui.ZoomHelper}*/
             zoomHelper = new gui.ZoomHelper(),
             /**@type{!gui.Viewport}*/
-            canvasViewport = viewport || new gui.SingleScrollViewport(/**@type{!HTMLElement}*/(element.parentNode));
+            canvasViewport = viewport || new gui.SingleScrollViewport(/**@type{!HTMLElement}*/(element.parentNode)),
+            styleIdCounters = {
+                frame: 0,
+                image: 0
+            };
+
+        /**
+         * @return {undefined}
+         */
+        function resetStyleIdCounters() {
+            styleIdCounters.frame = 0;
+            styleIdCounters.image = 0;
+        }
+
+        /**
+         * @return {!string}
+         */
+        function nextFrameStyleId() {
+            styleIdCounters.frame += 1;
+            return 'frame' + String(styleIdCounters.frame);
+        }
+
+        /**
+         * @return {!string}
+         */
+        function nextImageStyleId() {
+            styleIdCounters.image += 1;
+            return 'image' + String(styleIdCounters.image);
+        }
+
 
         /**
          * Load all the images that are inside an odf element.
@@ -872,7 +904,7 @@
             images = odffragment.getElementsByTagNameNS(drawns, 'image');
             for (i = 0; i < images.length; i += 1) {
                 node = /**@type{!Element}*/(images.item(i));
-                loadImage('image' + String(i), container, node, stylesheet);
+                loadImage(nextImageStyleId(), container, node, stylesheet);
             }
         }
         /**
@@ -903,6 +935,287 @@
             for (i = 0; i < plugins.length; i += 1) {
                 node = /**@type{!Element}*/(plugins.item(i));
                 loadVideo(container, node);
+            }
+        }
+
+        /**
+         * @param {?string} styleName
+         * @return {?string}
+         */
+        function resolveMasterPageNameFromParagraphStyle(styleName) {
+            var visited = Object.create(null),
+                styleElement,
+                masterName;
+
+            while (styleName) {
+                if (visited[styleName]) {
+                    break;
+                }
+                visited[styleName] = true;
+                styleElement = formatting.getStyleElement(styleName, 'paragraph');
+                if (!styleElement) {
+                    break;
+                }
+                masterName = styleElement.getAttributeNS(stylens, 'master-page-name');
+                if (masterName) {
+                    return masterName;
+                }
+                styleName = styleElement.getAttributeNS(stylens, 'parent-style-name');
+            }
+            return null;
+        }
+
+        /**
+         * @param {!odf.OdfContainer} container
+         * @param {?string} name
+         * @return {?Element}
+         */
+        function findPageLayoutElement(container, name) {
+            var node,
+                automaticStyles,
+                styles;
+
+            if (!name) {
+                return null;
+            }
+
+            automaticStyles = container.rootElement.automaticStyles;
+            if (automaticStyles) {
+                node = automaticStyles.firstElementChild;
+                while (node) {
+                    if (node.namespaceURI === stylens
+                            && node.localName === 'page-layout'
+                            && node.getAttributeNS(stylens, 'name') === name) {
+                        return node;
+                    }
+                    node = node.nextElementSibling;
+                }
+            }
+
+            styles = container.rootElement.styles;
+            if (styles) {
+                node = styles.firstElementChild;
+                while (node) {
+                    if (node.namespaceURI === stylens
+                            && (node.localName === 'page-layout' || node.localName === 'default-page-layout')
+                            && node.getAttributeNS(stylens, 'name') === name) {
+                        return node;
+                    }
+                    node = node.nextElementSibling;
+                }
+            }
+
+            return null;
+        }
+
+        /**
+         * @param {!odf.OdfContainer} container
+         * @param {!Element} masterPageElement
+         * @param {!string} role
+         * @return {!{marginLeft:?string, marginRight:?string, marginTop:?string, marginBottom:?string, minHeight:?string}}
+         */
+        function extractHeaderFooterProperties(container, masterPageElement, role) {
+            var layoutName = masterPageElement.getAttributeNS(stylens, 'page-layout-name'),
+                /**@type {?Element}*/layoutElement = findPageLayoutElement(container, layoutName),
+                /**@type {?Element}*/layoutProps,
+                /**@type {?Element}*/styleElement,
+                /**@type {?Element}*/propertyElement,
+                /**@type {!{marginLeft:?string, marginRight:?string, marginTop:?string, marginBottom:?string, minHeight:?string}}*/
+                props = {
+                    marginLeft: null,
+                    marginRight: null,
+                    marginTop: null,
+                    marginBottom: null,
+                    minHeight: null
+                };
+
+            if (!layoutElement) {
+                return props;
+            }
+
+            layoutProps = /**@type {?Element}*/(domUtils.getDirectChild(layoutElement, stylens, 'page-layout-properties'));
+            if (!layoutProps) {
+                return props;
+            }
+
+            styleElement = /**@type {?Element}*/(domUtils.getDirectChild(layoutProps, stylens, role === 'header' ? 'header-style' : 'footer-style'));
+            if (!styleElement) {
+                return props;
+            }
+
+            propertyElement = /**@type {?Element}*/(domUtils.getDirectChild(styleElement, stylens, 'header-footer-properties'));
+            if (!propertyElement) {
+                return props;
+            }
+
+            props.marginLeft = propertyElement.getAttributeNS(fons, 'margin-left') || null;
+            props.marginRight = propertyElement.getAttributeNS(fons, 'margin-right') || null;
+            props.marginTop = propertyElement.getAttributeNS(fons, 'margin-top') || null;
+            props.marginBottom = propertyElement.getAttributeNS(fons, 'margin-bottom') || null;
+            props.minHeight = propertyElement.getAttributeNS(fons, 'min-height') || null;
+
+            return props;
+        }
+
+        /**
+         * @param {!Element} host
+         * @param {!{marginLeft:?string, marginRight:?string, marginTop:?string, marginBottom:?string, minHeight:?string}} props
+         * @return {undefined}
+         */
+        function applyHeaderFooterBoxStyles(host, props) {
+            if (props.marginLeft) {
+                host.style.marginLeft = props.marginLeft;
+            }
+            if (props.marginRight) {
+                host.style.marginRight = props.marginRight;
+            }
+            if (props.marginTop) {
+                host.style.marginTop = props.marginTop;
+            }
+            if (props.marginBottom) {
+                host.style.marginBottom = props.marginBottom;
+            }
+            if (props.minHeight) {
+                host.style.minHeight = props.minHeight;
+            }
+        }
+
+        /**
+         * @param {!odf.OdfContainer} container
+         * @return {?{name: !string, element: !Element}}
+         */
+        function findMasterPageInfoForTextDocument(container) {
+            var contentElement = container.getContentElement(),
+                masterStyles,
+                /**@type {?string}*/masterPageName = null,
+                /**@type {?Element}*/masterPageElement = null,
+                firstParagraph,
+                defaultParagraph;
+
+            firstParagraph = /**@type {?Element}*/(contentElement.getElementsByTagNameNS(textns, 'p').item(0));
+            if (firstParagraph) {
+                masterPageName = resolveMasterPageNameFromParagraphStyle(firstParagraph.getAttributeNS(textns, 'style-name'));
+            }
+
+            if (!masterPageName) {
+                defaultParagraph = formatting.getDefaultStyleElement('paragraph');
+                if (defaultParagraph) {
+                    masterPageName = defaultParagraph.getAttributeNS(stylens, 'master-page-name');
+                }
+            }
+
+            if (masterPageName) {
+                masterPageElement = formatting.getMasterPageElement(masterPageName);
+            }
+
+            masterStyles = container.rootElement.masterStyles;
+            if (!masterPageElement && masterStyles) {
+                masterPageElement = /**@type{!Element}*/(masterStyles.getElementsByTagNameNS(stylens, 'master-page')[0]);
+                if (masterPageElement && !masterPageName) {
+                    masterPageName = masterPageElement.getAttributeNS(stylens, 'name') || '';
+                }
+            }
+
+            if (!masterPageElement) {
+                return null;
+            }
+
+            return {
+                name: masterPageName || '',
+                element: masterPageElement
+            };
+        }
+
+        /**
+         * @param {!odf.OdfContainer} container
+         * @param {!Element} masterPageElement
+         * @param {!string} role
+         * @param {!CSSStyleSheet} stylesheet
+         * @param {!string} masterPageName
+         * @return {?Element}
+         */
+        function cloneHeaderFooter(container, masterPageElement, role, stylesheet, masterPageName) {
+            var source,
+                host,
+                child,
+                props;
+
+            source = domUtils.getDirectChild(masterPageElement, stylens, role);
+            if (!source || !source.hasChildNodes()) {
+                if (role === 'header') {
+                    source = domUtils.getDirectChild(masterPageElement, stylens, 'header-left');
+                } else if (role === 'footer') {
+                    source = domUtils.getDirectChild(masterPageElement, stylens, 'footer-left');
+                }
+            }
+            if (!source || !source.hasChildNodes()) {
+                return null;
+            }
+
+            host = doc.createElementNS(element.namespaceURI, 'div');
+            host.className = 'webodf-' + role;
+            host.style.display = 'block';
+            host.style.width = '100%';
+            host.style.boxSizing = 'border-box';
+            if (masterPageName) {
+                host.setAttribute('data-master-page-name', masterPageName);
+            }
+
+            child = source.firstChild;
+            while (child) {
+                host.appendChild(doc.importNode(child, true));
+                child = child.nextSibling;
+            }
+
+            if (!host.hasChildNodes()) {
+                return null;
+            }
+
+            props = extractHeaderFooterProperties(container, masterPageElement, role);
+            applyHeaderFooterBoxStyles(host, props);
+
+            setContainerValue(host, textns, 'page-number', '1');
+
+            modifyDrawElements(host, stylesheet, nextFrameStyleId);
+            modifyTables(host, element.namespaceURI);
+            modifyLineBreakElements(host);
+            expandSpaceElements(host);
+            expandTabElements(host);
+            loadImages(container, host, stylesheet);
+            loadVideos(container, host);
+
+            return host;
+        }
+
+        /**
+         * @param {!odf.OdfContainer} container
+         * @param {!HTMLDivElement} targetSizer
+         * @param {!Element} odfnode
+         * @param {!CSSStyleSheet} stylesheet
+         * @return {undefined}
+         */
+        function renderTextDocumentHeaderFooter(container, targetSizer, odfnode, stylesheet) {
+            var masterInfo,
+                headerHost,
+                footerHost;
+
+            if (container.getDocumentType() !== 'text') {
+                return;
+            }
+
+            masterInfo = findMasterPageInfoForTextDocument(container);
+            if (!masterInfo) {
+                return;
+            }
+
+            headerHost = cloneHeaderFooter(container, masterInfo.element, 'header', stylesheet, masterInfo.name);
+            if (headerHost) {
+                targetSizer.insertBefore(headerHost, odfnode);
+            }
+
+            footerHost = cloneHeaderFooter(container, masterInfo.element, 'footer', stylesheet, masterInfo.name);
+            if (footerHost) {
+                targetSizer.appendChild(footerHost);
             }
         }
 
@@ -1033,7 +1346,8 @@
             shadowContent.style.left = 0;
             container.getContentElement().appendChild(shadowContent);
 
-            modifyDrawElements(odfnode.body, css);
+            resetStyleIdCounters();
+            modifyDrawElements(odfnode.body, css, nextFrameStyleId);
             cloneMasterPages(formatting, container, shadowContent, odfnode.body, css);
             modifyTables(odfnode.body, element.namespaceURI);
             modifyLineBreakElements(odfnode.body);
@@ -1043,6 +1357,7 @@
             loadVideos(container, odfnode.body);
 
             sizer.insertBefore(shadowContent, sizer.firstChild);
+            renderTextDocumentHeaderFooter(container, sizer, odfnode, css);
             zoomHelper.setZoomableElement(sizer);
         }
 

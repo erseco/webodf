@@ -4,8 +4,10 @@
   <meta charset="utf-8">
   <title>WebODF Viewer Demo</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="webodf/webodf.js"></script>
+  <script src="./webodf.js"></script>
   <style>
+    @namespace office url(urn:oasis:names:tc:opendocument:xmlns:office:1.0);
+    @namespace text url(urn:oasis:names:tc:opendocument:xmlns:text:1.0);
     body {
       padding-top: 5rem;
     }
@@ -22,12 +24,125 @@
     #viewer-container {
       margin-left: 250px;
       padding: 1rem;
+      background-color: #f0f0f0;
+      position: relative;
+      min-height: 100vh;
+      overflow-y: auto;
+    }
+    #loading-indicator {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(240, 240, 240, 0.8);
+      z-index: 10;
+    }
+    #odf-viewer {
+      min-height: 60vh;
+    }
+    office|text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      padding: 2rem 0 6rem;
+    }
+    .odf-page-wrapper {
+      width: min(100%, 21cm);
+      display: flex;
+      justify-content: center;
+    }
+    .odf-page {
+      /* Basic A4 defaults which we override from the document style */
+      --page-width: 21cm;
+      --page-height: 29.7cm;
+      --margin-top: 2cm;
+      --margin-right: 2cm;
+      --margin-bottom: 2cm;
+      --margin-left: 2cm;
+      --header-height: 1.25cm;
+      --footer-height: 1.25cm;
+
+      width: min(100%, var(--page-width));
+      min-height: var(--page-height);
+      background-color: #ffffff;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+      /* Reserve space for header and footer inside the page content */
+      padding: calc(var(--margin-top) + var(--header-height)) var(--margin-right)
+               calc(var(--margin-bottom) + var(--footer-height)) var(--margin-left);
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .odf-header, .odf-footer {
+      position: absolute;
+      left: var(--margin-left);
+      right: var(--margin-right);
+      color: #6c757d;
+      font-size: 0.9rem;
+      line-height: 1.2;
+      display: flex;
+      align-items: center;
+    }
+    .odf-header {
+      top: var(--margin-top);
+      height: var(--header-height);
+    }
+    .odf-footer {
+      bottom: var(--margin-bottom);
+      height: var(--footer-height);
+      justify-content: flex-end;
+    }
+    .odf-page--empty::after {
+      content: "Blank page";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: rgba(0, 0, 0, 0.35);
+      font-size: 0.95rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .list-group-item a.active {
+      color: #0d6efd;
+      font-weight: 600;
+    }
+    /* Ensure active item is readable (white text on blue bg) */
+    #sidebar .list-group-item.active {
+      background-color: #0d6efd;
+      border-color: #0d6efd;
+    }
+    #sidebar .list-group-item.active a,
+    #sidebar .list-group-item.active a:hover,
+    #sidebar .list-group-item.active a:focus,
+    #sidebar .list-group-item.active a:visited {
+      color: #fff !important;
+      text-decoration: none;
+    }
+    #placeholder {
+      max-width: 780px;
+      line-height: 1.6;
     }
     #drop-zone {
       border: 2px dashed #ccc;
       padding: 2rem;
       text-align: center;
       margin-bottom: 1rem;
+      cursor: pointer;
+    }
+    #drop-zone:hover, #drop-zone:focus {
+      border-color: #0d6efd;
+      background-color: #e9ecef;
+    }
+    #file-input {
+      display: none;
     }
   </style>
 </head>
@@ -39,30 +154,737 @@
       <li class="list-group-item"><a href="#" data-url="examples/sample1.odt">Sample 1</a></li>
       <li class="list-group-item"><a href="#" data-url="examples/sample2.odt">Sample 2</a></li>
       <li class="list-group-item"><a href="#" data-url="examples/sample3.odt">Sample 3</a></li>
+
+      <li class="list-group-item"><a href="#" data-url="examples/OpenDocument-v1.4-part3-schema.odt">OpenDocument v1.4 Part 3 – Schema</a></li>
+      <li class="list-group-item"><a href="#" data-url="examples/OpenDocument-v1.2-cd05-part1.odt">OpenDocument v1.2 CD05 – Part 1</a></li>
+      <li class="list-group-item"><a href="#" data-url="examples/OpenDocument-v1.4-part1-introduction.odt">OpenDocument v1.4 – Part 1 Introduction</a></li>
     </ul>
     <hr>
-    <div id="drop-zone">
-      Drag and drop an ODT file here
+    <div id="drop-zone" role="button" tabindex="0">
+      <p class="mb-1 fw-semibold">Drag &amp; drop your .odt file here</p>
+      <p class="mb-0 text-secondary small">or click to choose a file from your device</p>
+      <input type="file" id="file-input" accept=".odt,.fodt,application/vnd.oasis.opendocument.text">
     </div>
   </div>
 
   <div id="viewer-container">
-    <div id="odf-viewer"></div>
+    <div id="loading-indicator" class="d-none">
+      <div class="text-center">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 mb-0 text-muted">Loading document...</p>
+      </div>
+    </div>
+    <div id="placeholder" class="bg-white rounded shadow-sm p-4 p-md-5 mx-auto">
+      <h2 class="h4 fw-semibold mb-3">Welcome to WebODF Viewer</h2>
+      <p class="text-muted">
+        WebODF is an AGPL licensed JavaScript library that renders OpenDocument Format (ODF) files using plain HTML and CSS.
+        Browse the sample documents on the left or drop your own <code>.odt</code> file to see the viewer in action.
+      </p>
+      <ul class="small ps-3">
+        <li>Open source under the GNU AGPL – build custom viewers and editors.</li>
+        <li>Runs entirely in the browser, no plugins or server-side conversion required.</li>
+        <li>Supports desktop and mobile environments.</li>
+      </ul>
+      <div class="mt-4 d-flex flex-wrap gap-2">
+        <button type="button" id="open-default-sample" class="btn btn-primary">
+          Open Sample Document
+        </button>
+        <a class="btn btn-outline-secondary" href="https://github.com/kogmbh/WebODF/blob/master/README.md" target="_blank" rel="noopener">
+          Read the project README
+        </a>
+      </div>
+    </div>
+    <div id="odf-viewer" class="d-none"></div>
   </div>
 
   <script>
     const odfViewer = document.getElementById('odf-viewer');
     const odfCanvas = new odf.OdfCanvas(odfViewer);
+    const loadingIndicator = document.getElementById('loading-indicator');
+    let transientObjectUrl = null;
+    const TEXT_NS = 'urn:oasis:names:tc:opendocument:xmlns:text:1.0';
+    const SESSION_STORAGE_KEY = 'webodf-viewer-session-doc';
+    const SESSION_FILE_PARAM = '__session';
+    let currentDocumentDescriptor = null;
+    const sampleLinks = Array.from(document.querySelectorAll('.list-group-item a'));
+    const placeholder = document.getElementById('placeholder');
+    const openDefaultSampleButton = document.getElementById('open-default-sample');
+    const DEFAULT_SAMPLE_PATH = 'examples/sample1.odt';
+    let hasSuccessfulLoad = false;
 
-    document.querySelectorAll('.list-group-item a').forEach(item => {
-      item.addEventListener('click', event => {
+    function setLoading(isLoading) {
+      if (isLoading) {
+        loadingIndicator.classList.remove('d-none');
+      } else {
+        loadingIndicator.classList.add('d-none');
+      }
+    }
+
+    function togglePlaceholder(show) {
+      if (!placeholder) {
+        return;
+      }
+      if (show) {
+        placeholder.classList.remove('d-none');
+        odfViewer.classList.add('d-none');
+      } else {
+        placeholder.classList.add('d-none');
+        odfViewer.classList.remove('d-none');
+      }
+    }
+
+    function updateSampleSelection(descriptor) {
+      const activePath = descriptor && descriptor.type === 'path' ? descriptor.path : null;
+      sampleLinks.forEach(link => {
+        const isActive = Boolean(activePath && link.getAttribute('data-url') === activePath);
+        link.classList.toggle('active', isActive);
+        if (link.parentElement) {
+          link.parentElement.classList.toggle('active', isActive);
+        }
+      });
+    }
+
+    updateSampleSelection(null);
+
+    function setCurrentDescriptor(descriptor, { skipHistory = false } = {}) {
+      currentDocumentDescriptor = descriptor;
+      updateSampleSelection(descriptor);
+
+      const url = new URL(window.location.href);
+      const params = url.searchParams;
+
+      if (!descriptor) {
+        params.delete('file');
+      } else if (descriptor.type === 'session') {
+        params.set('file', SESSION_FILE_PARAM);
+      } else if (descriptor.type === 'path') {
+        params.set('file', descriptor.path);
+      }
+
+      if (skipHistory) {
+        return;
+      }
+
+      const searchString = params.toString();
+      const newUrl = `${url.pathname}${searchString ? `?${searchString}` : ''}${url.hash}`;
+      history.replaceState(null, '', newUrl);
+    }
+
+    function clearSessionDocument() {
+      try {
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      } catch (error) {
+        console.warn('Unable to clear stored document.', error);
+      }
+    }
+
+    function getStoredSessionDocument() {
+      try {
+        const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        console.warn('Unable to access stored document.', error);
+        return null;
+      }
+    }
+
+    function bufferToDataUrl(blob, fileName) {
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = event => {
+          resolve({
+            name: fileName || 'Document.odt',
+            mimeType: blob.type || 'application/vnd.oasis.opendocument.text',
+            dataUrl: event.target.result
+          });
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function persistSessionDocumentFromBlob(blob, fileName) {
+      const payload = await bufferToDataUrl(blob, fileName);
+      if (!payload) {
+        clearSessionDocument();
+        return false;
+      }
+      try {
+        sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+        return true;
+      } catch (error) {
+        console.warn('Unable to persist document for reloads.', error);
+        clearSessionDocument();
+        return false;
+      }
+    }
+
+    function dataUrlToBlob(dataUrl, fallbackMime) {
+      const parts = dataUrl.split(',');
+      if (parts.length < 2) {
+        return null;
+      }
+      const header = parts[0];
+      const base64 = parts[1];
+      const mimeMatch = header.match(/data:(.*?);base64/);
+      const mimeType = mimeMatch && mimeMatch[1] ? mimeMatch[1] : fallbackMime;
+      const binary = atob(base64);
+      const length = binary.length;
+      const bytes = new Uint8Array(length);
+      for (let i = 0; i < length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new Blob([bytes], { type: mimeType || fallbackMime });
+    }
+
+    function loadDocument(url, options = {}) {
+      const {
+        isObjectUrl = false,
+        descriptor = null,
+        skipHistory = false,
+        clearSession = false
+      } = options;
+
+      if (isObjectUrl) {
+        if (transientObjectUrl && transientObjectUrl !== url) {
+          URL.revokeObjectURL(transientObjectUrl);
+        }
+        transientObjectUrl = url;
+      } else if (transientObjectUrl) {
+        URL.revokeObjectURL(transientObjectUrl);
+        transientObjectUrl = null;
+      }
+
+      if (clearSession) {
+        clearSessionDocument();
+      }
+
+      hasSuccessfulLoad = false;
+      togglePlaceholder(false);
+      setCurrentDescriptor(descriptor, { skipHistory });
+      setLoading(true);
+      odfCanvas.load(url);
+    }
+
+    function hasRenderableContent(node) {
+      if (!node) {
+        return false;
+      }
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent.trim().length > 0;
+      }
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.childNodes.length === 0) {
+          return node.namespaceURI !== TEXT_NS;
+        }
+        return Array.from(node.childNodes).some(hasRenderableContent);
+      }
+      return false;
+    }
+
+    function fragmentIsEffectivelyEmpty(fragment) {
+      if (!fragment || fragment.childNodes.length === 0) {
+        return true;
+      }
+      return !Array.from(fragment.childNodes).some(hasRenderableContent);
+    }
+
+    function createPageStructure() {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'odf-page-wrapper';
+      const page = document.createElement('div');
+      page.className = 'odf-page';
+      wrapper.appendChild(page);
+      return { wrapper, page };
+    }
+
+    function getPageLayoutInfo() {
+      const canvasRoot = odfCanvas.getElement();
+      const defaults = {
+        width: '21cm',
+        height: '29.7cm',
+        marginTop: '2cm',
+        marginRight: '2cm',
+        marginBottom: '2cm',
+        marginLeft: '2cm',
+        headerMinHeight: '1.25cm',
+        footerMinHeight: '1.25cm',
+        pageUsage: 'all',
+        master: null,
+        headerNode: null,
+        headerLeftNode: null,
+        footerNode: null,
+        footerLeftNode: null,
+        headerProps: null,
+        footerProps: null
+      };
+      if (!canvasRoot) return defaults;
+      const masterStyles = canvasRoot.querySelector('office\\:master-styles');
+      const master = masterStyles && masterStyles.querySelector('style\\:master-page');
+      if (!master) return defaults;
+
+      const layoutName = master.getAttribute('style:page-layout-name');
+      let pageLayout = null;
+      if (layoutName) {
+        try {
+          pageLayout = canvasRoot.querySelector(`style\\:page-layout[style\\:name="${CSS.escape(layoutName)}"]`);
+        } catch (_) {
+          pageLayout = null;
+        }
+      }
+      if (!pageLayout) {
+        pageLayout = canvasRoot.querySelector('style\\:default-page-layout, style\\:page-layout');
+      }
+      const props = pageLayout && pageLayout.querySelector('style\\:page-layout-properties');
+      const read = (el, name, fallback) => (el && el.getAttribute(name)) || fallback;
+      const info = {
+        width: read(props, 'fo:page-width', defaults.width),
+        height: read(props, 'fo:page-height', defaults.height),
+        marginTop: read(props, 'fo:margin-top', defaults.marginTop),
+        marginRight: read(props, 'fo:margin-right', defaults.marginRight),
+        marginBottom: read(props, 'fo:margin-bottom', defaults.marginBottom),
+        marginLeft: read(props, 'fo:margin-left', defaults.marginLeft),
+        pageUsage: read(props, 'style:page-usage', defaults.pageUsage),
+        headerMinHeight: defaults.headerMinHeight,
+        footerMinHeight: defaults.footerMinHeight,
+        master,
+        headerNode: null,
+        headerLeftNode: null,
+        footerNode: null,
+        footerLeftNode: null,
+        headerProps: null,
+        footerProps: null
+      };
+      const headerStyle = props && props.querySelector('style\\:header-style style\\:header-footer-properties');
+      const footerStyle = props && props.querySelector('style\\:footer-style style\\:header-footer-properties');
+      if (headerStyle) {
+        info.headerMinHeight = read(headerStyle, 'fo:min-height', info.headerMinHeight);
+        info.headerProps = {
+          marginLeft: read(headerStyle, 'fo:margin-left', null),
+          marginRight: read(headerStyle, 'fo:margin-right', null),
+          marginTop: read(headerStyle, 'fo:margin-top', null),
+          marginBottom: read(headerStyle, 'fo:margin-bottom', null),
+          paddingLeft: read(headerStyle, 'fo:padding-left', null),
+          paddingRight: read(headerStyle, 'fo:padding-right', null),
+          paddingTop: read(headerStyle, 'fo:padding-top', null),
+          paddingBottom: read(headerStyle, 'fo:padding-bottom', null)
+        };
+      }
+      if (footerStyle) {
+        info.footerMinHeight = read(footerStyle, 'fo:min-height', info.footerMinHeight);
+        info.footerProps = {
+          marginLeft: read(footerStyle, 'fo:margin-left', null),
+          marginRight: read(footerStyle, 'fo:margin-right', null),
+          marginTop: read(footerStyle, 'fo:margin-top', null),
+          marginBottom: read(footerStyle, 'fo:margin-bottom', null),
+          paddingLeft: read(footerStyle, 'fo:padding-left', null),
+          paddingRight: read(footerStyle, 'fo:padding-right', null),
+          paddingTop: read(footerStyle, 'fo:padding-top', null),
+          paddingBottom: read(footerStyle, 'fo:padding-bottom', null)
+        };
+      }
+      info.headerNode = master && master.querySelector('style\\:header');
+      info.headerLeftNode = master && master.querySelector('style\\:header-left');
+      info.footerNode = master && master.querySelector('style\\:footer');
+      info.footerLeftNode = master && master.querySelector('style\\:footer-left');
+
+      // Optional: first page vs subsequent pages via next-style-name
+      const nextName = master.getAttribute('style:next-style-name');
+      if (nextName && masterStyles) {
+        let nextMaster = null;
+        try {
+          nextMaster = masterStyles.querySelector(`style\\:master-page[style\\:name=\"${CSS.escape(nextName)}\"]`);
+        } catch (_) { nextMaster = null; }
+        if (nextMaster) {
+          const ln2 = nextMaster.getAttribute('style:page-layout-name');
+          let pl2 = null;
+          if (ln2) {
+            try { pl2 = canvasRoot.querySelector(`style\\:page-layout[style\\:name=\"${CSS.escape(ln2)}\"]`); } catch (_) { pl2 = null; }
+          }
+          if (!pl2) {
+            pl2 = canvasRoot.querySelector('style\\:default-page-layout, style\\:page-layout');
+          }
+          const p2 = pl2 && pl2.querySelector('style\\:page-layout-properties');
+          const hs2 = p2 && p2.querySelector('style\\:header-style style\\:header-footer-properties');
+          const fs2 = p2 && p2.querySelector('style\\:footer-style style\\:header-footer-properties');
+          info.next = {
+            width: read(p2, 'fo:page-width', info.width),
+            height: read(p2, 'fo:page-height', info.height),
+            marginTop: read(p2, 'fo:margin-top', info.marginTop),
+            marginRight: read(p2, 'fo:margin-right', info.marginRight),
+            marginBottom: read(p2, 'fo:margin-bottom', info.marginBottom),
+            marginLeft: read(p2, 'fo:margin-left', info.marginLeft),
+            pageUsage: read(p2, 'style:page-usage', info.pageUsage),
+            headerMinHeight: hs2 ? read(hs2, 'fo:min-height', info.headerMinHeight) : info.headerMinHeight,
+            footerMinHeight: fs2 ? read(fs2, 'fo:min-height', info.footerMinHeight) : info.footerMinHeight,
+            master: nextMaster,
+            headerNode: nextMaster.querySelector('style\\:header'),
+            headerLeftNode: nextMaster.querySelector('style\\:header-left'),
+            footerNode: nextMaster.querySelector('style\\:footer'),
+            footerLeftNode: nextMaster.querySelector('style\\:footer-left'),
+            headerProps: hs2 ? {
+              marginLeft: read(hs2, 'fo:margin-left', null),
+              marginRight: read(hs2, 'fo:margin-right', null),
+              marginTop: read(hs2, 'fo:margin-top', null),
+              marginBottom: read(hs2, 'fo:margin-bottom', null),
+              paddingLeft: read(hs2, 'fo:padding-left', null),
+              paddingRight: read(hs2, 'fo:padding-right', null),
+              paddingTop: read(hs2, 'fo:padding-top', null),
+              paddingBottom: read(hs2, 'fo:padding-bottom', null)
+            } : null,
+            footerProps: fs2 ? {
+              marginLeft: read(fs2, 'fo:margin-left', null),
+              marginRight: read(fs2, 'fo:margin-right', null),
+              marginTop: read(fs2, 'fo:margin-top', null),
+              marginBottom: read(fs2, 'fo:margin-bottom', null),
+              paddingLeft: read(fs2, 'fo:padding-left', null),
+              paddingRight: read(fs2, 'fo:padding-right', null),
+              paddingTop: read(fs2, 'fo:padding-top', null),
+              paddingBottom: read(fs2, 'fo:padding-bottom', null)
+            } : null
+          };
+        }
+      }
+      return info;
+    }
+
+    function configurePageFromLayout(page, layout) {
+      page.style.setProperty('--page-width', layout.width);
+      page.style.setProperty('--page-height', layout.height);
+      page.style.setProperty('--margin-top', layout.marginTop);
+      page.style.setProperty('--margin-right', layout.marginRight);
+      page.style.setProperty('--margin-bottom', layout.marginBottom);
+      page.style.setProperty('--margin-left', layout.marginLeft);
+      page.style.setProperty('--header-height', layout.headerMinHeight);
+      page.style.setProperty('--footer-height', layout.footerMinHeight);
+    }
+
+    function replacePageFields(container, current, total) {
+      const numberNodes = Array.from(container.querySelectorAll('text\\:page-number'));
+      numberNodes.forEach(node => {
+        const select = node.getAttribute('text:select-page') || 'current';
+        let value = current;
+        if (select === 'previous') value = Math.max(1, current - 1);
+        if (select === 'next') value = Math.min(total, current + 1);
+        node.textContent = String(value);
+      });
+      const countNodes = Array.from(container.querySelectorAll('text\\:page-count'));
+      countNodes.forEach(node => { node.textContent = String(total); });
+    }
+
+    function cloneChildren(node) {
+      const frag = document.createDocumentFragment();
+      if (!node) return frag;
+      let child = node.firstChild;
+      while (child) {
+        frag.appendChild(child.cloneNode(true));
+        child = child.nextSibling;
+      }
+      return frag;
+    }
+
+    function applyHeaderFooterToPages(pages, layout) {
+      const total = pages.length;
+      pages.forEach((page, index) => {
+        const active = (index === 0 || !layout.next) ? layout : layout.next;
+        configurePageFromLayout(page, active);
+        const even = ((index + 1) % 2) === 0;
+        const useLeft = active.pageUsage === 'mirrored' && even;
+
+        const headerBox = document.createElement('div');
+        headerBox.className = 'odf-header';
+        const headerTemplate = useLeft && active.headerLeftNode ? active.headerLeftNode : (active.headerNode || active.headerLeftNode);
+        if (headerTemplate) {
+          const clonedH = cloneChildren(headerTemplate);
+          replacePageFields(clonedH, index + 1, total);
+          headerBox.appendChild(clonedH);
+        }
+        if (active.headerProps) {
+          const hp = active.headerProps;
+          if (hp.paddingLeft) headerBox.style.paddingLeft = hp.paddingLeft;
+          if (hp.paddingRight) headerBox.style.paddingRight = hp.paddingRight;
+          if (hp.paddingTop) headerBox.style.paddingTop = hp.paddingTop;
+          if (hp.paddingBottom) headerBox.style.paddingBottom = hp.paddingBottom;
+          if (hp.marginTop) headerBox.style.top = `calc(var(--margin-top) + ${hp.marginTop})`;
+          if (hp.marginLeft) headerBox.style.left = `calc(var(--margin-left) + ${hp.marginLeft})`;
+          if (hp.marginRight) headerBox.style.right = `calc(var(--margin-right) + ${hp.marginRight})`;
+        }
+        page.appendChild(headerBox);
+
+        const footerBox = document.createElement('div');
+        footerBox.className = 'odf-footer';
+        const footerTemplate = useLeft && active.footerLeftNode ? active.footerLeftNode : (active.footerNode || active.footerLeftNode);
+        if (footerTemplate) {
+          const clonedF = cloneChildren(footerTemplate);
+          replacePageFields(clonedF, index + 1, total);
+          footerBox.appendChild(clonedF);
+        }
+        if (active.footerProps) {
+          const fp = active.footerProps;
+          if (fp.paddingLeft) footerBox.style.paddingLeft = fp.paddingLeft;
+          if (fp.paddingRight) footerBox.style.paddingRight = fp.paddingRight;
+          if (fp.paddingTop) footerBox.style.paddingTop = fp.paddingTop;
+          if (fp.paddingBottom) footerBox.style.paddingBottom = fp.paddingBottom;
+          if (fp.marginBottom) footerBox.style.bottom = `calc(var(--margin-bottom) + ${fp.marginBottom})`;
+          if (fp.marginLeft) footerBox.style.left = `calc(var(--margin-left) + ${fp.marginLeft})`;
+          if (fp.marginRight) footerBox.style.right = `calc(var(--margin-right) + ${fp.marginRight})`;
+        }
+        page.appendChild(footerBox);
+      });
+    }
+
+    function paginateBySoftBreaks(officeText, layout) {
+      const pages = [];
+      const fragments = [];
+      while (officeText.firstChild) {
+        const nextBreak = officeText.querySelector('text\\:soft-page-break');
+        const range = document.createRange();
+        if (nextBreak) {
+          range.setStart(officeText, 0);
+          range.setEndBefore(nextBreak);
+          const fragment = range.extractContents();
+          fragments.push(fragment);
+          if (nextBreak.parentNode) {
+            nextBreak.parentNode.removeChild(nextBreak);
+          }
+        } else {
+          range.selectNodeContents(officeText);
+          const fragment = range.extractContents();
+          fragments.push(fragment);
+          break;
+        }
+      }
+      if (!fragments.length) {
+        fragments.push(document.createDocumentFragment());
+      }
+      const docFragment = document.createDocumentFragment();
+      fragments.forEach(fragment => {
+        const { wrapper, page } = createPageStructure();
+        configurePageFromLayout(page, layout);
+        if (fragment && fragment.childNodes.length) {
+          const isEmpty = fragmentIsEffectivelyEmpty(fragment);
+          if (!isEmpty) {
+            page.appendChild(fragment);
+          } else {
+            page.classList.add('odf-page--empty');
+          }
+        } else {
+          page.classList.add('odf-page--empty');
+        }
+        pages.push(page);
+        docFragment.appendChild(wrapper);
+      });
+      officeText.appendChild(docFragment);
+      return pages;
+    }
+
+    function paginateByHeight(officeText, layout) {
+      // Fallback pagination when no soft-page-break markers exist.
+      // Moves top-level blocks into pages until a page would overflow.
+      const pages = [];
+      const docFragment = document.createDocumentFragment();
+      let { wrapper, page } = createPageStructure();
+      configurePageFromLayout(page, layout);
+      docFragment.appendChild(wrapper);
+      pages.push(page);
+
+      // Hidden measuring page with fixed height to detect overflow
+      const measure = document.createElement('div');
+      measure.className = 'odf-page';
+      configurePageFromLayout(measure, layout);
+      measure.style.position = 'absolute';
+      measure.style.visibility = 'hidden';
+      measure.style.left = '-100000px';
+      const computed = getComputedStyle(measure);
+      measure.style.height = computed.minHeight;
+      measure.style.overflow = 'hidden';
+      odfViewer.appendChild(measure);
+
+      function wouldOverflow(target, node) {
+        const clone = node.cloneNode(true);
+        measure.appendChild(clone);
+        const overflow = measure.scrollHeight > measure.clientHeight;
+        measure.removeChild(clone);
+        return overflow;
+      }
+
+      // Collect the nodes we will distribute (top-level, ignoring soft breaks)
+      const blocks = [];
+      while (officeText.firstChild) {
+        const n = officeText.firstChild;
+        officeText.removeChild(n);
+        // skip any soft-page-break left overs if present
+        if (n.nodeType === Node.ELEMENT_NODE &&
+            n.namespaceURI === TEXT_NS && n.localName === 'soft-page-break') {
+          continue;
+        }
+        blocks.push(n);
+      }
+
+      // Distribute blocks across pages
+      blocks.forEach(node => {
+        // If adding this node overflows the page, start a new page
+        if (node.nodeType === Node.ELEMENT_NODE &&
+            ['p', 'h', 'list', 'table', 'section'].includes(node.localName || '')) {
+          if (wouldOverflow(page, node)) {
+            ({ wrapper, page } = createPageStructure());
+            configurePageFromLayout(page, layout);
+            docFragment.appendChild(wrapper);
+            pages.push(page);
+          }
+          page.appendChild(node);
+        } else {
+          // For inline/text or unknown nodes, try append and split when needed
+          if (wouldOverflow(page, node)) {
+            ({ wrapper, page } = createPageStructure());
+            configurePageFromLayout(page, layout);
+            docFragment.appendChild(wrapper);
+            pages.push(page);
+          }
+          page.appendChild(node);
+        }
+      });
+
+      officeText.appendChild(docFragment);
+      measure.remove();
+      return pages;
+    }
+
+    function paginateDocument() {
+      const canvasRoot = odfCanvas.getElement();
+      if (!canvasRoot) {
+        return;
+      }
+
+      const officeText = canvasRoot.querySelector('office\\:text');
+      if (!officeText || officeText.getAttribute('data-paginated') === 'true') {
+        return;
+      }
+      // Remove non-paginated global header/footer inserted by OdfCanvas
+      Array.from(odfViewer.querySelectorAll('.webodf-header, .webodf-footer')).forEach(n => n.remove());
+
+      // Read page style (size, margins and header/footer box min-heights)
+      const layout = getPageLayoutInfo();
+
+      // Snapshot original children for potential fallback
+      const original = document.createDocumentFragment();
+      Array.from(officeText.childNodes).forEach(n => original.appendChild(n.cloneNode(true)));
+
+      // Try soft-break pagination first; if there is only one page produced,
+      // fall back to height-based pagination to approximate pages.
+      let pages = paginateBySoftBreaks(officeText, layout);
+      if (pages.length <= 1) {
+        // reset to original content and try height-based pagination
+        while (officeText.firstChild) officeText.removeChild(officeText.firstChild);
+        officeText.appendChild(original.cloneNode(true));
+        pages = paginateByHeight(officeText, layout);
+      }
+      applyHeaderFooterToPages(pages, layout);
+      officeText.setAttribute('data-paginated', 'true');
+      odfCanvas.refreshSize();
+    }
+
+    function restoreSessionDocument({ skipHistory = false } = {}) {
+      const stored = getStoredSessionDocument();
+      if (!stored || !stored.dataUrl) {
+        console.warn('No stored document available for restoration.');
+        clearSessionDocument();
+        setCurrentDescriptor(null, { skipHistory });
+        setLoading(false);
+        togglePlaceholder(true);
+        return false;
+      }
+      const blob = dataUrlToBlob(stored.dataUrl, stored.mimeType || 'application/vnd.oasis.opendocument.text');
+      if (!blob) {
+        console.warn('Stored document data is corrupted.');
+        clearSessionDocument();
+        setCurrentDescriptor(null, { skipHistory });
+        setLoading(false);
+        togglePlaceholder(true);
+        return false;
+      }
+      const objectUrl = URL.createObjectURL(blob);
+      loadDocument(objectUrl, {
+        isObjectUrl: true,
+        descriptor: { type: 'session', name: stored.name || 'Document.odt' },
+        skipHistory
+      });
+      return true;
+    }
+
+    function initializeFromQueryParam() {
+      const params = new URLSearchParams(window.location.search);
+      const fileParam = params.get('file');
+      if (!fileParam) {
+        togglePlaceholder(true);
+        setCurrentDescriptor(null, { skipHistory: true });
+        setLoading(false);
+        return;
+      }
+      if (fileParam === SESSION_FILE_PARAM) {
+        setLoading(true);
+        restoreSessionDocument({ skipHistory: true });
+        return;
+      }
+      loadDocument(fileParam, {
+        descriptor: { type: 'path', path: fileParam },
+        skipHistory: true,
+        clearSession: true
+      });
+    }
+
+    odfCanvas.addListener('statereadychange', container => {
+      if (!container) {
+        setLoading(false);
+        togglePlaceholder(true);
+        return;
+      }
+
+      const state = container.state;
+      if (state === odf.OdfContainer.LOADING) {
+        setLoading(true);
+        return;
+      }
+
+      if (state === odf.OdfContainer.DONE) {
+        try {
+          paginateDocument();
+          hasSuccessfulLoad = true;
+        } catch (error) {
+          console.error('Failed to paginate the document.', error);
+        } finally {
+          togglePlaceholder(false);
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (state === odf.OdfContainer.INVALID) {
+        console.error('Document could not be loaded.');
+        if (!hasSuccessfulLoad) {
+          togglePlaceholder(true);
+          setCurrentDescriptor(null);
+        }
+        setLoading(false);
+      }
+    });
+
+    sampleLinks.forEach(link => {
+      link.addEventListener('click', event => {
         event.preventDefault();
-        const url = event.target.getAttribute('data-url');
-        odfCanvas.load(url);
+        const url = link.getAttribute('data-url');
+        loadDocument(url, {
+          descriptor: { type: 'path', path: url },
+          clearSession: true
+        });
       });
     });
 
     const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const browseKeys = ['Enter', ' ', 'Space', 'Spacebar'];
 
     dropZone.addEventListener('dragover', event => {
       event.preventDefault();
@@ -74,21 +896,78 @@
       dropZone.style.backgroundColor = 'transparent';
     });
 
+    function handleFile(file) {
+      if (!file) {
+        setLoading(false);
+        togglePlaceholder(true);
+        return;
+      }
+
+      const reader = new FileReader();
+      setLoading(true);
+      reader.onload = async e => {
+        try {
+          const arrayBuffer = e.target.result;
+          const blob = new Blob([arrayBuffer], { type: file.type || 'application/vnd.oasis.opendocument.text' });
+          const objectUrl = URL.createObjectURL(blob);
+          const persisted = await persistSessionDocumentFromBlob(blob, file.name);
+          const descriptor = persisted ? { type: 'session', name: file.name || 'Document.odt' } : null;
+          if (!persisted) {
+            console.warn('Reload support disabled for this document (too large or storage unavailable).');
+          }
+          loadDocument(objectUrl, {
+            isObjectUrl: true,
+            descriptor,
+            clearSession: !persisted
+          });
+        } catch (error) {
+          setLoading(false);
+          togglePlaceholder(true);
+          console.error('Unable to process the selected file.', error);
+        }
+      };
+      reader.onerror = () => {
+        setLoading(false);
+        togglePlaceholder(true);
+        console.error('Failed to read the selected file.', reader.error);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    dropZone.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    dropZone.addEventListener('keydown', event => {
+      if (browseKeys.includes(event.key)) {
+        event.preventDefault();
+        fileInput.click();
+      }
+    });
+
     dropZone.addEventListener('drop', event => {
       event.preventDefault();
       dropZone.style.backgroundColor = 'transparent';
-      const file = event.dataTransfer.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          const arrayBuffer = e.target.result;
-          const blob = new Blob([arrayBuffer], { type: 'application/vnd.oasis.opendocument.text' });
-          const url = URL.createObjectURL(blob);
-          odfCanvas.load(url);
-        };
-        reader.readAsArrayBuffer(file);
-      }
+      const file = event.dataTransfer.files ? event.dataTransfer.files[0] : null;
+      handleFile(file);
     });
+
+    fileInput.addEventListener('change', event => {
+      const file = event.target.files ? event.target.files[0] : null;
+      handleFile(file);
+      event.target.value = '';
+    });
+
+    if (openDefaultSampleButton) {
+      openDefaultSampleButton.addEventListener('click', () => {
+        loadDocument(DEFAULT_SAMPLE_PATH, {
+          descriptor: { type: 'path', path: DEFAULT_SAMPLE_PATH },
+          clearSession: true
+        });
+      });
+    }
+
+    initializeFromQueryParam();
   </script>
 </body>
 </html>
