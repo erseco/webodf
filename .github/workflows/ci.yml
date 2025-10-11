@@ -54,6 +54,8 @@ jobs:
           mkdir -p deploy/webodf
           cp build/webodf/webodf.js deploy/webodf/
           cp viewer/index.html deploy/
+          # Include example ODT files for the demo viewer
+          cp -r examples deploy/
 
       - name: Deploy to gh-pages
         if: github.event_name == 'push'
