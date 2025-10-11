@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>WebODF Viewer Demo</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="/webodf/webodf.js"></script>
+  <script src="./webodf.js"></script>
   <style>
     @namespace office url(urn:oasis:names:tc:opendocument:xmlns:office:1.0);
     @namespace text url(urn:oasis:names:tc:opendocument:xmlns:text:1.0);
@@ -57,14 +57,47 @@
       justify-content: center;
     }
     .odf-page {
-      width: min(100%, 21cm);
-      min-height: 29.7cm;
+      /* Basic A4 defaults which we override from the document style */
+      --page-width: 21cm;
+      --page-height: 29.7cm;
+      --margin-top: 2cm;
+      --margin-right: 2cm;
+      --margin-bottom: 2cm;
+      --margin-left: 2cm;
+      --header-height: 1.25cm;
+      --footer-height: 1.25cm;
+
+      width: min(100%, var(--page-width));
+      min-height: var(--page-height);
       background-color: #ffffff;
       border: 1px solid rgba(0, 0, 0, 0.08);
       box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
-      padding: 2cm;
+      /* Reserve space for header and footer inside the page content */
+      padding: calc(var(--margin-top) + var(--header-height)) var(--margin-right)
+               calc(var(--margin-bottom) + var(--footer-height)) var(--margin-left);
       box-sizing: border-box;
       position: relative;
+      overflow: hidden;
+    }
+
+    .odf-header, .odf-footer {
+      position: absolute;
+      left: var(--margin-left);
+      right: var(--margin-right);
+      color: #6c757d;
+      font-size: 0.9rem;
+      line-height: 1.2;
+      display: flex;
+      align-items: center;
+    }
+    .odf-header {
+      top: var(--margin-top);
+      height: var(--header-height);
+    }
+    .odf-footer {
+      bottom: var(--margin-bottom);
+      height: var(--footer-height);
+      justify-content: flex-end;
     }
     .odf-page--empty::after {
       content: "Blank page";
@@ -80,6 +113,18 @@
     .list-group-item a.active {
       color: #0d6efd;
       font-weight: 600;
+    }
+    /* Ensure active item is readable (white text on blue bg) */
+    #sidebar .list-group-item.active {
+      background-color: #0d6efd;
+      border-color: #0d6efd;
+    }
+    #sidebar .list-group-item.active a,
+    #sidebar .list-group-item.active a:hover,
+    #sidebar .list-group-item.active a:focus,
+    #sidebar .list-group-item.active a:visited {
+      color: #fff !important;
+      text-decoration: none;
     }
     #placeholder {
       max-width: 780px;
@@ -355,17 +400,243 @@
       return { wrapper, page };
     }
 
-    function paginateDocument() {
+    function getPageLayoutInfo() {
       const canvasRoot = odfCanvas.getElement();
-      if (!canvasRoot) {
-        return;
-      }
+      const defaults = {
+        width: '21cm',
+        height: '29.7cm',
+        marginTop: '2cm',
+        marginRight: '2cm',
+        marginBottom: '2cm',
+        marginLeft: '2cm',
+        headerMinHeight: '1.25cm',
+        footerMinHeight: '1.25cm',
+        pageUsage: 'all',
+        master: null,
+        headerNode: null,
+        headerLeftNode: null,
+        footerNode: null,
+        footerLeftNode: null,
+        headerProps: null,
+        footerProps: null
+      };
+      if (!canvasRoot) return defaults;
+      const masterStyles = canvasRoot.querySelector('office\\:master-styles');
+      const master = masterStyles && masterStyles.querySelector('style\\:master-page');
+      if (!master) return defaults;
 
-      const officeText = canvasRoot.querySelector('office\\:text');
-      if (!officeText || officeText.getAttribute('data-paginated') === 'true') {
-        return;
+      const layoutName = master.getAttribute('style:page-layout-name');
+      let pageLayout = null;
+      if (layoutName) {
+        try {
+          pageLayout = canvasRoot.querySelector(`style\\:page-layout[style\\:name="${CSS.escape(layoutName)}"]`);
+        } catch (_) {
+          pageLayout = null;
+        }
       }
+      if (!pageLayout) {
+        pageLayout = canvasRoot.querySelector('style\\:default-page-layout, style\\:page-layout');
+      }
+      const props = pageLayout && pageLayout.querySelector('style\\:page-layout-properties');
+      const read = (el, name, fallback) => (el && el.getAttribute(name)) || fallback;
+      const info = {
+        width: read(props, 'fo:page-width', defaults.width),
+        height: read(props, 'fo:page-height', defaults.height),
+        marginTop: read(props, 'fo:margin-top', defaults.marginTop),
+        marginRight: read(props, 'fo:margin-right', defaults.marginRight),
+        marginBottom: read(props, 'fo:margin-bottom', defaults.marginBottom),
+        marginLeft: read(props, 'fo:margin-left', defaults.marginLeft),
+        pageUsage: read(props, 'style:page-usage', defaults.pageUsage),
+        headerMinHeight: defaults.headerMinHeight,
+        footerMinHeight: defaults.footerMinHeight,
+        master,
+        headerNode: null,
+        headerLeftNode: null,
+        footerNode: null,
+        footerLeftNode: null,
+        headerProps: null,
+        footerProps: null
+      };
+      const headerStyle = props && props.querySelector('style\\:header-style style\\:header-footer-properties');
+      const footerStyle = props && props.querySelector('style\\:footer-style style\\:header-footer-properties');
+      if (headerStyle) {
+        info.headerMinHeight = read(headerStyle, 'fo:min-height', info.headerMinHeight);
+        info.headerProps = {
+          marginLeft: read(headerStyle, 'fo:margin-left', null),
+          marginRight: read(headerStyle, 'fo:margin-right', null),
+          marginTop: read(headerStyle, 'fo:margin-top', null),
+          marginBottom: read(headerStyle, 'fo:margin-bottom', null),
+          paddingLeft: read(headerStyle, 'fo:padding-left', null),
+          paddingRight: read(headerStyle, 'fo:padding-right', null),
+          paddingTop: read(headerStyle, 'fo:padding-top', null),
+          paddingBottom: read(headerStyle, 'fo:padding-bottom', null)
+        };
+      }
+      if (footerStyle) {
+        info.footerMinHeight = read(footerStyle, 'fo:min-height', info.footerMinHeight);
+        info.footerProps = {
+          marginLeft: read(footerStyle, 'fo:margin-left', null),
+          marginRight: read(footerStyle, 'fo:margin-right', null),
+          marginTop: read(footerStyle, 'fo:margin-top', null),
+          marginBottom: read(footerStyle, 'fo:margin-bottom', null),
+          paddingLeft: read(footerStyle, 'fo:padding-left', null),
+          paddingRight: read(footerStyle, 'fo:padding-right', null),
+          paddingTop: read(footerStyle, 'fo:padding-top', null),
+          paddingBottom: read(footerStyle, 'fo:padding-bottom', null)
+        };
+      }
+      info.headerNode = master && master.querySelector('style\\:header');
+      info.headerLeftNode = master && master.querySelector('style\\:header-left');
+      info.footerNode = master && master.querySelector('style\\:footer');
+      info.footerLeftNode = master && master.querySelector('style\\:footer-left');
 
+      // Optional: first page vs subsequent pages via next-style-name
+      const nextName = master.getAttribute('style:next-style-name');
+      if (nextName && masterStyles) {
+        let nextMaster = null;
+        try {
+          nextMaster = masterStyles.querySelector(`style\\:master-page[style\\:name=\"${CSS.escape(nextName)}\"]`);
+        } catch (_) { nextMaster = null; }
+        if (nextMaster) {
+          const ln2 = nextMaster.getAttribute('style:page-layout-name');
+          let pl2 = null;
+          if (ln2) {
+            try { pl2 = canvasRoot.querySelector(`style\\:page-layout[style\\:name=\"${CSS.escape(ln2)}\"]`); } catch (_) { pl2 = null; }
+          }
+          if (!pl2) {
+            pl2 = canvasRoot.querySelector('style\\:default-page-layout, style\\:page-layout');
+          }
+          const p2 = pl2 && pl2.querySelector('style\\:page-layout-properties');
+          const hs2 = p2 && p2.querySelector('style\\:header-style style\\:header-footer-properties');
+          const fs2 = p2 && p2.querySelector('style\\:footer-style style\\:header-footer-properties');
+          info.next = {
+            width: read(p2, 'fo:page-width', info.width),
+            height: read(p2, 'fo:page-height', info.height),
+            marginTop: read(p2, 'fo:margin-top', info.marginTop),
+            marginRight: read(p2, 'fo:margin-right', info.marginRight),
+            marginBottom: read(p2, 'fo:margin-bottom', info.marginBottom),
+            marginLeft: read(p2, 'fo:margin-left', info.marginLeft),
+            pageUsage: read(p2, 'style:page-usage', info.pageUsage),
+            headerMinHeight: hs2 ? read(hs2, 'fo:min-height', info.headerMinHeight) : info.headerMinHeight,
+            footerMinHeight: fs2 ? read(fs2, 'fo:min-height', info.footerMinHeight) : info.footerMinHeight,
+            master: nextMaster,
+            headerNode: nextMaster.querySelector('style\\:header'),
+            headerLeftNode: nextMaster.querySelector('style\\:header-left'),
+            footerNode: nextMaster.querySelector('style\\:footer'),
+            footerLeftNode: nextMaster.querySelector('style\\:footer-left'),
+            headerProps: hs2 ? {
+              marginLeft: read(hs2, 'fo:margin-left', null),
+              marginRight: read(hs2, 'fo:margin-right', null),
+              marginTop: read(hs2, 'fo:margin-top', null),
+              marginBottom: read(hs2, 'fo:margin-bottom', null),
+              paddingLeft: read(hs2, 'fo:padding-left', null),
+              paddingRight: read(hs2, 'fo:padding-right', null),
+              paddingTop: read(hs2, 'fo:padding-top', null),
+              paddingBottom: read(hs2, 'fo:padding-bottom', null)
+            } : null,
+            footerProps: fs2 ? {
+              marginLeft: read(fs2, 'fo:margin-left', null),
+              marginRight: read(fs2, 'fo:margin-right', null),
+              marginTop: read(fs2, 'fo:margin-top', null),
+              marginBottom: read(fs2, 'fo:margin-bottom', null),
+              paddingLeft: read(fs2, 'fo:padding-left', null),
+              paddingRight: read(fs2, 'fo:padding-right', null),
+              paddingTop: read(fs2, 'fo:padding-top', null),
+              paddingBottom: read(fs2, 'fo:padding-bottom', null)
+            } : null
+          };
+        }
+      }
+      return info;
+    }
+
+    function configurePageFromLayout(page, layout) {
+      page.style.setProperty('--page-width', layout.width);
+      page.style.setProperty('--page-height', layout.height);
+      page.style.setProperty('--margin-top', layout.marginTop);
+      page.style.setProperty('--margin-right', layout.marginRight);
+      page.style.setProperty('--margin-bottom', layout.marginBottom);
+      page.style.setProperty('--margin-left', layout.marginLeft);
+      page.style.setProperty('--header-height', layout.headerMinHeight);
+      page.style.setProperty('--footer-height', layout.footerMinHeight);
+    }
+
+    function replacePageFields(container, current, total) {
+      const numberNodes = Array.from(container.querySelectorAll('text\\:page-number'));
+      numberNodes.forEach(node => {
+        const select = node.getAttribute('text:select-page') || 'current';
+        let value = current;
+        if (select === 'previous') value = Math.max(1, current - 1);
+        if (select === 'next') value = Math.min(total, current + 1);
+        node.textContent = String(value);
+      });
+      const countNodes = Array.from(container.querySelectorAll('text\\:page-count'));
+      countNodes.forEach(node => { node.textContent = String(total); });
+    }
+
+    function cloneChildren(node) {
+      const frag = document.createDocumentFragment();
+      if (!node) return frag;
+      let child = node.firstChild;
+      while (child) {
+        frag.appendChild(child.cloneNode(true));
+        child = child.nextSibling;
+      }
+      return frag;
+    }
+
+    function applyHeaderFooterToPages(pages, layout) {
+      const total = pages.length;
+      pages.forEach((page, index) => {
+        const active = (index === 0 || !layout.next) ? layout : layout.next;
+        configurePageFromLayout(page, active);
+        const even = ((index + 1) % 2) === 0;
+        const useLeft = active.pageUsage === 'mirrored' && even;
+
+        const headerBox = document.createElement('div');
+        headerBox.className = 'odf-header';
+        const headerTemplate = useLeft && active.headerLeftNode ? active.headerLeftNode : (active.headerNode || active.headerLeftNode);
+        if (headerTemplate) {
+          const clonedH = cloneChildren(headerTemplate);
+          replacePageFields(clonedH, index + 1, total);
+          headerBox.appendChild(clonedH);
+        }
+        if (active.headerProps) {
+          const hp = active.headerProps;
+          if (hp.paddingLeft) headerBox.style.paddingLeft = hp.paddingLeft;
+          if (hp.paddingRight) headerBox.style.paddingRight = hp.paddingRight;
+          if (hp.paddingTop) headerBox.style.paddingTop = hp.paddingTop;
+          if (hp.paddingBottom) headerBox.style.paddingBottom = hp.paddingBottom;
+          if (hp.marginTop) headerBox.style.top = `calc(var(--margin-top) + ${hp.marginTop})`;
+          if (hp.marginLeft) headerBox.style.left = `calc(var(--margin-left) + ${hp.marginLeft})`;
+          if (hp.marginRight) headerBox.style.right = `calc(var(--margin-right) + ${hp.marginRight})`;
+        }
+        page.appendChild(headerBox);
+
+        const footerBox = document.createElement('div');
+        footerBox.className = 'odf-footer';
+        const footerTemplate = useLeft && active.footerLeftNode ? active.footerLeftNode : (active.footerNode || active.footerLeftNode);
+        if (footerTemplate) {
+          const clonedF = cloneChildren(footerTemplate);
+          replacePageFields(clonedF, index + 1, total);
+          footerBox.appendChild(clonedF);
+        }
+        if (active.footerProps) {
+          const fp = active.footerProps;
+          if (fp.paddingLeft) footerBox.style.paddingLeft = fp.paddingLeft;
+          if (fp.paddingRight) footerBox.style.paddingRight = fp.paddingRight;
+          if (fp.paddingTop) footerBox.style.paddingTop = fp.paddingTop;
+          if (fp.paddingBottom) footerBox.style.paddingBottom = fp.paddingBottom;
+          if (fp.marginBottom) footerBox.style.bottom = `calc(var(--margin-bottom) + ${fp.marginBottom})`;
+          if (fp.marginLeft) footerBox.style.left = `calc(var(--margin-left) + ${fp.marginLeft})`;
+          if (fp.marginRight) footerBox.style.right = `calc(var(--margin-right) + ${fp.marginRight})`;
+        }
+        page.appendChild(footerBox);
+      });
+    }
+
+    function paginateBySoftBreaks(officeText, layout) {
+      const pages = [];
       const fragments = [];
       while (officeText.firstChild) {
         const nextBreak = officeText.querySelector('text\\:soft-page-break');
@@ -385,14 +656,13 @@
           break;
         }
       }
-
       if (!fragments.length) {
         fragments.push(document.createDocumentFragment());
       }
-
       const docFragment = document.createDocumentFragment();
       fragments.forEach(fragment => {
         const { wrapper, page } = createPageStructure();
+        configurePageFromLayout(page, layout);
         if (fragment && fragment.childNodes.length) {
           const isEmpty = fragmentIsEffectivelyEmpty(fragment);
           if (!isEmpty) {
@@ -403,10 +673,115 @@
         } else {
           page.classList.add('odf-page--empty');
         }
+        pages.push(page);
         docFragment.appendChild(wrapper);
+      });
+      officeText.appendChild(docFragment);
+      return pages;
+    }
+
+    function paginateByHeight(officeText, layout) {
+      // Fallback pagination when no soft-page-break markers exist.
+      // Moves top-level blocks into pages until a page would overflow.
+      const pages = [];
+      const docFragment = document.createDocumentFragment();
+      let { wrapper, page } = createPageStructure();
+      configurePageFromLayout(page, layout);
+      docFragment.appendChild(wrapper);
+      pages.push(page);
+
+      // Hidden measuring page with fixed height to detect overflow
+      const measure = document.createElement('div');
+      measure.className = 'odf-page';
+      configurePageFromLayout(measure, layout);
+      measure.style.position = 'absolute';
+      measure.style.visibility = 'hidden';
+      measure.style.left = '-100000px';
+      const computed = getComputedStyle(measure);
+      measure.style.height = computed.minHeight;
+      measure.style.overflow = 'hidden';
+      odfViewer.appendChild(measure);
+
+      function wouldOverflow(target, node) {
+        const clone = node.cloneNode(true);
+        measure.appendChild(clone);
+        const overflow = measure.scrollHeight > measure.clientHeight;
+        measure.removeChild(clone);
+        return overflow;
+      }
+
+      // Collect the nodes we will distribute (top-level, ignoring soft breaks)
+      const blocks = [];
+      while (officeText.firstChild) {
+        const n = officeText.firstChild;
+        officeText.removeChild(n);
+        // skip any soft-page-break left overs if present
+        if (n.nodeType === Node.ELEMENT_NODE &&
+            n.namespaceURI === TEXT_NS && n.localName === 'soft-page-break') {
+          continue;
+        }
+        blocks.push(n);
+      }
+
+      // Distribute blocks across pages
+      blocks.forEach(node => {
+        // If adding this node overflows the page, start a new page
+        if (node.nodeType === Node.ELEMENT_NODE &&
+            ['p', 'h', 'list', 'table', 'section'].includes(node.localName || '')) {
+          if (wouldOverflow(page, node)) {
+            ({ wrapper, page } = createPageStructure());
+            configurePageFromLayout(page, layout);
+            docFragment.appendChild(wrapper);
+            pages.push(page);
+          }
+          page.appendChild(node);
+        } else {
+          // For inline/text or unknown nodes, try append and split when needed
+          if (wouldOverflow(page, node)) {
+            ({ wrapper, page } = createPageStructure());
+            configurePageFromLayout(page, layout);
+            docFragment.appendChild(wrapper);
+            pages.push(page);
+          }
+          page.appendChild(node);
+        }
       });
 
       officeText.appendChild(docFragment);
+      measure.remove();
+      return pages;
+    }
+
+    function paginateDocument() {
+      const canvasRoot = odfCanvas.getElement();
+      if (!canvasRoot) {
+        return;
+      }
+
+      const officeText = canvasRoot.querySelector('office\\:text');
+      if (!officeText || officeText.getAttribute('data-paginated') === 'true') {
+        return;
+      }
+      // Remove non-paginated global header/footer inserted by OdfCanvas
+      Array.from(odfViewer.querySelectorAll('.webodf-header, .webodf-footer')).forEach(n => n.remove());
+
+      // Read page style (size, margins and header/footer box min-heights)
+      const layout = getPageLayoutInfo();
+
+      // Snapshot original children for potential fallback
+      const original = document.createDocumentFragment();
+      Array.from(officeText.childNodes).forEach(n => original.appendChild(n.cloneNode(true)));
+
+      // Try soft-break pagination first; if there is only one page produced,
+      // fall back to height-based pagination to approximate pages.
+      let pages = paginateBySoftBreaks(officeText, layout);
+      if (pages.length <= 1) {
+        // reset to original content and try height-based pagination
+        while (officeText.firstChild) officeText.removeChild(officeText.firstChild);
+        officeText.appendChild(original.cloneNode(true));
+        pages = paginateByHeight(officeText, layout);
+      }
+      applyHeaderFooterToPages(pages, layout);
       officeText.setAttribute('data-paginated', 'true');
       odfCanvas.refreshSize();
     }

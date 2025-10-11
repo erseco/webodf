@@ -46,9 +46,15 @@ configure:
 build: configure
 	$(CMAKE) --build $(CMAKE_BUILD_DIR) --target $(CMAKE_BUILD_TARGET)
 
+.PHONY: build-viewer
+build-viewer: build
+	$(CMAKE) -E copy_directory viewer $(CMAKE_BUILD_DIR)/viewer
+	$(CMAKE) -E copy $(CMAKE_BUILD_DIR)/webodf/webodf.js $(CMAKE_BUILD_DIR)/viewer/webodf.js
+	@echo "Viewer prepared at $(CMAKE_BUILD_DIR)/viewer"
+
 serve: build
 	$(CMAKE) -E copy_directory viewer $(SERVE_ROOT)/viewer
-	$(CMAKE) -E copy_directory examples $(SERVE_ROOT)/viewer/examples
+	$(CMAKE) -E copy $(CMAKE_BUILD_DIR)/webodf/webodf.js $(SERVE_ROOT)/viewer/webodf.js
 	@echo "Serving WebODF viewer on http://$(SERVE_HOST):$(SERVE_PORT)/viewer/"
 	$(HTTP_SERVER) $(SERVE_ROOT) -a $(SERVE_HOST) -p $(SERVE_PORT) -c-1 -o viewer/index.html
 
