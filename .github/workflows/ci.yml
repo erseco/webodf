@@ -36,10 +36,32 @@ jobs:
           restore-keys: |
             build-v1-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt') }}-
 
+      - name: Restore APT cache
+        uses: actions/cache@v4
+        with:
+          path: .apt-cache
+          key: apt-v1-${{ runner.os }}-${{ hashFiles('ci/apt-packages.txt') }}
+          restore-keys: |
+            apt-v1-${{ runner.os }}-
+
+      - name: Seed system APT cache
+        run: |
+          sudo mkdir -p /var/cache/apt/archives /var/lib/apt/lists
+          mkdir -p .apt-cache/archives .apt-cache/lists
+          sudo cp -ruv .apt-cache/archives/. /var/cache/apt/archives/ || true
+          sudo cp -ruv .apt-cache/lists/. /var/lib/apt/lists/ || true
+
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake default-jdk libqt5webkit5-dev
+          sudo apt-get install -y $(tr '\n' ' ' < ci/apt-packages.txt)
+
+      - name: Persist APT cache
+        if: always()
+        run: |
+          mkdir -p .apt-cache/archives .apt-cache/lists
+          sudo cp -ruv /var/cache/apt/archives/. .apt-cache/archives/ || true
+          sudo cp -ruv /var/lib/apt/lists/. .apt-cache/lists/ || true
 
       - name: Build webodf.js
         run: |
