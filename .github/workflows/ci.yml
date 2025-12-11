@@ -30,7 +30,7 @@ jobs:
 
       - name: Cache build directory
         id: cache-build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build
           key: build-v1-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}-${{ steps.determine_version.outputs.version_arg }}
@@ -38,7 +38,7 @@ jobs:
             build-v1-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}-
 
       - name: Restore APT cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .apt-cache
           key: apt-v1-${{ runner.os }}-${{ hashFiles('ci/apt-packages.txt') }}
