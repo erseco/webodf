@@ -37,3 +37,5 @@ simple.odt
 simpleFrame.odt
 webodf/tests/*.odt
 webodf/tests/odf/newloadsave.odt
+
+build_test
