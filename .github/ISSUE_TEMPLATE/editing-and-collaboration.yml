@@ -1,0 +1,51 @@
+name: Editing and collaboration fault
+description: Report input, cursor, undo, collaboration, or save/editing regressions.
+title: "[Editing] "
+body:
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: Affected library area
+      options:
+        - gui editing controllers
+        - ops operational transforms / collaboration
+        - cursor or selection handling
+        - save / load workflow
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: Symptom
+      options:
+        - Text input or IME problem
+        - Cursor / selection problem
+        - Undo / redo problem
+        - Collaboration / sync problem
+        - Save / export problem
+        - Other editing fault
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Edit ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
