@@ -1,0 +1,13 @@
+# Target labels
+ JsDoc
+# Source files and their labels
+/home/runner/work/webodf/webodf/build_test/CMakeFiles/JsDoc
+/home/runner/work/webodf/webodf/build_test/CMakeFiles/JsDoc.rule
+/home/runner/work/webodf/webodf/build_test/CMakeFiles/JsDoc-complete.rule
+/home/runner/work/webodf/webodf/build_test/JsDoc-prefix/src/JsDoc-stamp/JsDoc-build.rule
+/home/runner/work/webodf/webodf/build_test/JsDoc-prefix/src/JsDoc-stamp/JsDoc-configure.rule
+/home/runner/work/webodf/webodf/build_test/JsDoc-prefix/src/JsDoc-stamp/JsDoc-download.rule
+/home/runner/work/webodf/webodf/build_test/JsDoc-prefix/src/JsDoc-stamp/JsDoc-install.rule
+/home/runner/work/webodf/webodf/build_test/JsDoc-prefix/src/JsDoc-stamp/JsDoc-mkdir.rule
+/home/runner/work/webodf/webodf/build_test/JsDoc-prefix/src/JsDoc-stamp/JsDoc-patch.rule
+/home/runner/work/webodf/webodf/build_test/JsDoc-prefix/src/JsDoc-stamp/JsDoc-update.rule

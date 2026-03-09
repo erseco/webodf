@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/Dojo"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/Dojo.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/Dojo-complete.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo-stamp/Dojo-build.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo-stamp/Dojo-configure.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo-stamp/Dojo-download.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo-stamp/Dojo-install.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo-stamp/Dojo-mkdir.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo-stamp/Dojo-patch.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo-stamp/Dojo-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"Dojo"
+		],
+		"name" : "Dojo"
+	}
+}

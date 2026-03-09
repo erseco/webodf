@@ -1,0 +1,12 @@
+# This is a generated file and its contents are an internal implementation detail.
+# The download step will be re-executed if anything in this file changes.
+# No other meaning or use of this file is supported.
+
+method=url
+command=/usr/local/bin/cmake;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo-stamp/download-Dojo.cmake;COMMAND;/usr/local/bin/cmake;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo-stamp/verify-Dojo.cmake;COMMAND;/usr/local/bin/cmake;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo-stamp/extract-Dojo.cmake
+source_dir=/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src/Dojo
+work_dir=/home/runner/work/webodf/webodf/build_test/Dojo-prefix/src
+url(s)=https://download.dojotoolkit.org/release-1.10.4/dojo-release-1.10.4-src.tar.gz
+hash=
+      no_extract=
+

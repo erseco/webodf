@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/JSCoverage"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/JSCoverage.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/JSCoverage-complete.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-build.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-configure.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-download.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-install.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-mkdir.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-patch.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"JSCoverage"
+		],
+		"name" : "JSCoverage"
+	}
+}

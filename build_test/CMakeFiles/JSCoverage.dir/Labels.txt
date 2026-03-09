@@ -1,0 +1,13 @@
+# Target labels
+ JSCoverage
+# Source files and their labels
+/home/runner/work/webodf/webodf/build_test/CMakeFiles/JSCoverage
+/home/runner/work/webodf/webodf/build_test/CMakeFiles/JSCoverage.rule
+/home/runner/work/webodf/webodf/build_test/CMakeFiles/JSCoverage-complete.rule
+/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-build.rule
+/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-configure.rule
+/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-download.rule
+/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-install.rule
+/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-mkdir.rule
+/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-patch.rule
+/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage-stamp/JSCoverage-update.rule

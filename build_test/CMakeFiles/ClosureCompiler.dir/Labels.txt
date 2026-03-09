@@ -1,0 +1,13 @@
+# Target labels
+ ClosureCompiler
+# Source files and their labels
+/home/runner/work/webodf/webodf/build_test/CMakeFiles/ClosureCompiler
+/home/runner/work/webodf/webodf/build_test/CMakeFiles/ClosureCompiler.rule
+/home/runner/work/webodf/webodf/build_test/CMakeFiles/ClosureCompiler-complete.rule
+/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-build.rule
+/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-configure.rule
+/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-download.rule
+/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-install.rule
+/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-mkdir.rule
+/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-patch.rule
+/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-update.rule

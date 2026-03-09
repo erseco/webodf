@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/ClosureCompiler"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/ClosureCompiler.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/ClosureCompiler-complete.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-build.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-configure.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-download.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-install.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-mkdir.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-patch.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/ClosureCompiler-prefix/src/ClosureCompiler-stamp/ClosureCompiler-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"ClosureCompiler"
+		],
+		"name" : "ClosureCompiler"
+	}
+}

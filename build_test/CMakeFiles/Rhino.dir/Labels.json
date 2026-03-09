@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/Rhino"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/Rhino.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/CMakeFiles/Rhino-complete.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Rhino-prefix/src/Rhino-stamp/Rhino-build.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Rhino-prefix/src/Rhino-stamp/Rhino-configure.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Rhino-prefix/src/Rhino-stamp/Rhino-download.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Rhino-prefix/src/Rhino-stamp/Rhino-install.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Rhino-prefix/src/Rhino-stamp/Rhino-mkdir.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Rhino-prefix/src/Rhino-stamp/Rhino-patch.rule"
+		},
+		{
+			"file" : "/home/runner/work/webodf/webodf/build_test/Rhino-prefix/src/Rhino-stamp/Rhino-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"Rhino"
+		],
+		"name" : "Rhino"
+	}
+}
