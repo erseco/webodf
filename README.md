@@ -4,6 +4,41 @@ WebODF is a ODF JavaScript library originally created by KO GmbH.
 
 It makes it easy to add Open Document Format (ODF) support to your website and to your mobile or desktop application. It uses HTML and CSS to display ODF documents.
 
+## Quick Start
+
+The fastest way to get productive from a fresh checkout is:
+
+1. **Build the library**
+
+       make build
+
+   The first build configures CMake, downloads the Closure Compiler, and writes the library to `build/webodf/webodf.js`.
+
+2. **Run the demo locally**
+
+       make serve
+
+   This builds the library, copies the demo assets into `build/`, and serves the viewer at `http://127.0.0.1:8080/viewer/`.
+
+3. **Load an `.odt` file**
+
+   * Open the local viewer and drag an `.odt` or `.fodt` file onto the drop zone, or click it to browse for a file.
+   * To open one of the bundled examples directly, visit `http://127.0.0.1:8080/viewer/?file=examples/sample1.odt`.
+
+4. **Embed the viewer in another page**
+
+   * Start from the existing example in [`webodf/embedodf.html`](webodf/embedodf.html) or the simple loader in [`webodf/odf.html`](webodf/odf.html).
+   * After building, include `build/webodf/webodf.js` and load a document with `odf.OdfCanvas`:
+
+         <div id="odf"></div>
+         <script src="build/webodf/webodf.js"></script>
+         <script>
+           const canvas = new odf.OdfCanvas(document.getElementById("odf"));
+           canvas.load("path/to/document.odt");
+         </script>
+
+Need build prerequisites or contributor details? See [README-Building.md](README-Building.md) for platform-specific setup and [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, tests, coding expectations, and release notes.
+
 * Visit the project homepage at: [WebODF](https://webodf.org)
 * Want some live demos? Visit: [WebODF Demos](https://webodf.org/demos/)
 * Get in contact:
