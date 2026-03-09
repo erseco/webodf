@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebODF Collaborative Editing Demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: #f5f7fb;
+    }
+    .demo-shell {
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 1rem;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 1rem 2rem rgba(15, 23, 42, 0.08);
+    }
+    .demo-frame {
+      width: 100%;
+      height: 82vh;
+      min-height: 760px;
+      border: 0;
+      background: #fff;
+    }
+    .feature-copy {
+      max-width: 68rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="container py-4 py-lg-5">
+    <div class="feature-copy mx-auto">
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <a class="btn btn-outline-secondary btn-sm" href="../../../index.html">Back to viewer demo</a>
+        <a class="btn btn-outline-primary btn-sm" href="commonparagraphstyle-demo.html">See paragraph style demo</a>
+        <a class="btn btn-primary btn-sm" href="../../editor/src-splitscreeneditor.html" target="_blank" rel="noopener">Open split-screen demo in a new tab</a>
+      </div>
+      <h1 class="display-6 fw-semibold mb-3">Real-time Collaborative Editing</h1>
+      <p class="lead text-secondary mb-3">
+        Modification of a document is done based on the concept of operations. WebODF defines a list of the possible
+        minimal and simple changes that can be done on a document, with certain parameters per type of change. Each
+        change is done by a corresponding operation.
+      </p>
+      <p class="mb-3">
+        In case of interactive editing by a human user the editing commands sent by the user, e.g. by pressing
+        Backspace or by clicking the Bold button with text selected, are translated into the defined operations, which
+        then are applied.
+      </p>
+      <p class="mb-3">
+        To support collaborative editing Operational Transformation techniques are used on these operations to resolve
+        the editing conflicts on concurrent changes.
+      </p>
+      <p class="mb-4">
+        Because the cursors and selections of all users in a collaborative session are added to the shared document,
+        each user can also see the cursors and selections of the others.
+      </p>
+      <p class="mb-4">
+        WebODF does not require a certain server for collaborative editing, also does not come with any server code
+        itself. Instead WebODF has a plugin system which allows adaption to any server or peer-to-peer technology.
+      </p>
+      <div class="alert alert-info" role="note">
+        This split-screen demo shows two users editing the same document in one browser session. Try typing in either
+        pane, applying styles, and changing the simulated latency to see synchronization behavior.
+      </div>
+    </div>
+
+    <section class="demo-shell mt-4" aria-labelledby="collaborative-demo-heading">
+      <div class="border-bottom px-3 py-2 bg-light">
+        <h2 id="collaborative-demo-heading" class="h5 mb-0">Collaborative editing demo</h2>
+      </div>
+      <iframe
+        class="demo-frame"
+        src="../../editor/src-splitscreeneditor.html"
+        title="WebODF collaborative editing demo"></iframe>
+    </section>
+  </main>
+</body>
+</html>

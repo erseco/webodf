@@ -80,16 +80,18 @@ jobs:
           ref: gh-pages
           path: deploy
 
-      - name: Prepare deployment
-        if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
-        run: |
-          set -euo pipefail
-          # Copy artifacts
-          mkdir -p deploy/webodf
-          cp build/webodf/webodf.js deploy/webodf/
-          # cp viewer/index.html deploy/index.html
-          cp -r viewer/. deploy/
-          cp -r examples/. deploy/examples/
+       - name: Prepare deployment
+         if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
+         run: |
+           set -euo pipefail
+           # Copy artifacts
+           mkdir -p deploy/webodf
+           cp build/webodf/webodf.js deploy/webodf/
+           cp -r webodf/lib deploy/webodf/
+           cp -r programs/editor deploy/
+           # cp viewer/index.html deploy/index.html
+           cp -r viewer/. deploy/
+           cp -r examples/. deploy/examples/
 
       - name: Deploy to gh-pages
         if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
