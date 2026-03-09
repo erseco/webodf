@@ -92,7 +92,9 @@ jobs:
           make webodf.js-tests
 
       - name: Checkout gh-pages into deploy
-        if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
+        if: |
+          (github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))) ||
+          (github.event_name == 'pull_request' && github.event.action != 'closed')
         uses: actions/checkout@v6
         continue-on-error: true
         with:
@@ -108,6 +110,8 @@ jobs:
           # Copy artifacts
           mkdir -p deploy/webodf
           cp build/webodf/webodf.js deploy/webodf/
+          cp -r webodf/lib deploy/webodf/
+          cp -r programs/editor deploy/
           # cp viewer/index.html deploy/index.html
           cp -r viewer/. deploy/
           cp -r examples/. deploy/examples/
