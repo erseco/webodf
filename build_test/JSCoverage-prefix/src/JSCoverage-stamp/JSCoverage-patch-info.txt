@@ -1,6 +1,0 @@
-# This is a generated file and its contents are an internal implementation detail.
-# The update step will be re-executed if anything in this file changes.
-# No other meaning or use of this file is supported.
-
-command=cat;/home/runner/work/webodf/webodf/JSCoverage.patch;|;patch;-p1
-work_dir=/home/runner/work/webodf/webodf/build_test/JSCoverage-prefix/src/JSCoverage
