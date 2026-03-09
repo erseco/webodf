@@ -121,6 +121,7 @@ When using the Wodo.TextEditor component this is all automatically done, the fol
  the communication as used for "ownCloud Documents".
 
 2. Is there a Free Software collaboration server for WebODF-based editing?
+ 
+ There used to be integrations such as "ownCloud Documents" (https://github.com/ownCloud/Documents), but this repository currently ships only the client-side pieces and does not include a maintained collaboration server.
 
- There is "ownCloud Documents" (https://github.com/ownCloud/Documents).
- KO GmbH will be happy to get funding to implement other Free Software server or P2P solutions.
+ If you need an actively maintained server-backed solution, LibreOffice Online / Collabora Online are likely to be a better starting point than the historical WebODF demos and integrations in this repository.

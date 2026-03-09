@@ -4,6 +4,14 @@ WebODF is a ODF JavaScript library originally created by KO GmbH.
 
 It makes it easy to add Open Document Format (ODF) support to your website and to your mobile or desktop application. It uses HTML and CSS to display ODF documents.
 
+### Project status
+
+WebODF still works as a client-side ODF viewer/editor library in modern browsers, but it is no longer maintained by KO GmbH and there is currently no dedicated active maintainer for this repository.
+
+The library remains useful if you need browser-based ODF rendering or want to build on its modular components, but you should expect some areas of the bundled UI to feel dated and some larger feature gaps to remain open unless they are picked up by the community.
+
+If you need a more actively developed, server-backed online office stack, LibreOffice Online / Collabora Online are the closest alternatives mentioned by the community. Community projects built on top of WebODF are also occasionally shared in the issue tracker.
+
 * Visit the project homepage at: [WebODF](https://webodf.org)
 * Want some live demos? Visit: [WebODF Demos](https://webodf.org/demos/)
 * Get in contact:
