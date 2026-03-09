@@ -1,0 +1,49 @@
+name: Build and tooling fault
+description: Report CMake, dependency download, packaging, test, or CI failures.
+title: "[Build] "
+body:
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Failing stage
+      options:
+        - CMake configure
+        - Dependency download
+        - webodf.js build
+        - webodf.js-tests / nodetest
+        - Packaging / product build
+        - CI workflow
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, compiler/runtime versions, and any relevant package manager details.
+      placeholder: |
+        OS:
+        CMake:
+        Node.js:
+        Java:
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or workflow step
+      description: Paste the exact command or CI step that fails.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual failure
+      description: Paste the relevant error output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
