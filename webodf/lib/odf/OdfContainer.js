@@ -301,7 +301,7 @@
      * document.
      *
      * Browser integrations usually observe this class indirectly through the
-     * `statereadychange` event exposed by `odf.OdfCanvas`. The constructor takes
+     * viewer's `statereadychange` event. The constructor takes
      * either a URL or a document type. If urlOrType is a type, an empty
      * document of that type is created. Otherwise, urlOrType is interpreted as
      * a URL and loaded from that URL.
