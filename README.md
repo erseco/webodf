@@ -11,6 +11,17 @@ It makes it easy to add Open Document Format (ODF) support to your website and t
   * [mailing list](https://lists.opendocsociety.org/mailman/listinfo/webodf) or
   * IRC (#webodf auf freenode, [Web access](http://webchat.freenode.net/?nick=webodfcurious_gh&channels=webodf))
 
+### Reporting faults
+
+Recurring issues in the upstream `webodf/WebODF` tracker cluster around four parts of the library:
+
+* document rendering and layout
+* editor, input and collaboration behavior
+* API and framework integration
+* build, packaging and CI/tooling
+
+Use the matching issue form in this repository so the report includes the right reproduction details for the affected part of WebODF.
+
 ### License
 
 WebODF is a Free Software project. All code is available under the AGPL.
