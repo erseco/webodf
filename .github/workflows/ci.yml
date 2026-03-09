@@ -17,6 +17,10 @@ on:
 permissions:
   contents: write
   pull-requests: write
+concurrency:
+  # Serialize all runs that can update gh-pages to avoid preview/deploy push races.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'pull_request' || github.ref_name == 'main' || startsWith(github.ref_name, 'v')) && 'gh-pages-writers' || github.ref }}
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest
