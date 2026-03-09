@@ -9,6 +9,14 @@ on:
   pull_request:
     branches:
       - "**"
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+permissions:
+  contents: write
+  pull-requests: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -88,7 +96,9 @@ jobs:
           path: deploy
 
       - name: Prepare deployment
-        if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
+        if: |
+          (github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))) ||
+          (github.event_name == 'pull_request' && github.event.action != 'closed')
         run: |
           set -euo pipefail
           # Copy artifacts
@@ -104,3 +114,21 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./deploy
+
+      - name: Deploy PR preview
+        if: github.event_name == 'pull_request' && github.event.action != 'closed'
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ./deploy
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          wait-for-pages-deployment: true
+
+      - name: Remove PR preview
+        if: github.event_name == 'pull_request' && github.event.action == 'closed'
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          wait-for-pages-deployment: true
+          action: remove
