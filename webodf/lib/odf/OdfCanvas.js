@@ -791,14 +791,24 @@
         return /**@type {!HTMLStyleElement}*/(style);
     }
     /**
+     * Public browser-facing viewer API for rendering an ODF document inside an
+     * existing DOM element.
+     *
+     * Typical usage is:
+     *   1. create a canvas with `new odf.OdfCanvas(element)`
+     *   2. call `load(url)` with an application URL or an object URL created
+     *      from a `File`
+     *   3. listen to `statereadychange` to detect success or failure
+     *   4. call `destroy(callback)` when the viewer is unmounted
+     *
      * This class manages a loaded ODF document that is shown in an element.
-     * It takes care of giving visual feedback on loading, ensures that the
+     * It takes care of giving visual feedback on loading and ensures that the
      * stylesheets are loaded.
      * @constructor
      * @implements {gui.AnnotatableCanvas}
      * @implements {ops.Canvas}
      * @implements {core.Destroyable}
-     * @param {!HTMLElement} element Put and ODF Canvas inside this element.
+     * @param {!HTMLElement} element Put an ODF canvas inside this element.
      * @param {!gui.Viewport=} viewport Viewport used for scrolling elements and ranges into view
      */
     odf.OdfCanvas = function OdfCanvas(element, viewport) {
@@ -1166,6 +1176,14 @@
             refreshOdf(suppressEvent === true);
         };
         /**
+         * Load an ODF document from a URL.
+         *
+         * The URL may be a normal application URL or an object URL created with
+         * `URL.createObjectURL(file)` when loading from a browser `File`
+         * instance. Listen to `statereadychange` and inspect the
+         * `odf.OdfContainer` state constants to detect when loading finishes or
+         * fails.
+         *
          * @param {string} url
          * @return {undefined}
          */
@@ -1199,6 +1217,13 @@
         };
 
         /**
+         * Register a public viewer event handler.
+         *
+         * Supported integration events are:
+         *  - `statereadychange`: fired with the active `odf.OdfContainer`
+         *    instance so callers can inspect `container.state`
+         *  - `click`: forwarded from the host DOM element
+         *
          * @param {!string} eventName
          * @param {!function(*)} handler
          * @return {undefined}
@@ -1397,6 +1422,7 @@
         };
 
         /**
+         * Returns the host element passed to the constructor.
          * @return {!HTMLElement}
          */
         this.getElement = function () {
@@ -1426,6 +1452,12 @@
             }
         };
         /**
+         * Destroy the viewer and release stylesheets, timers, and zoom helpers
+         * attached to the current document.
+         *
+         * Call this before removing the host element from the DOM or when
+         * unmounting a viewer inside a single-page application.
+         *
          * @param {!function(!Error=)} callback, passing an error object in case of error
          * @return {undefined}
          */
