@@ -57,6 +57,41 @@ Recurring issues in the upstream `webodf/WebODF` tracker cluster around four par
 
 Use the matching issue form in this repository so the report includes the right reproduction details for the affected part of WebODF.
 
+### Public viewer API
+
+For browser integrations, treat `odf.OdfCanvas` as the supported viewer API and
+`odf.OdfContainer` state constants as the supported way to detect load success
+or failure. Internal modules under `webodf/lib/core`, `webodf/lib/gui`, and the
+rest of `webodf/lib/odf` are implementation details and can change without
+notice.
+
+See [PUBLIC-API.md](PUBLIC-API.md) for:
+
+* the documented public API surface
+* examples for loading from a URL or `File`
+* event handling and teardown patterns
+* a compatibility table for document types and viewer features
+
+Minimal browser example:
+
+```html
+<div id="viewer"></div>
+<script src="webodf/webodf.js"></script>
+<script>
+  const canvas = new odf.OdfCanvas(document.getElementById("viewer"));
+
+  canvas.addListener("statereadychange", function (container) {
+    if (container.state === odf.OdfContainer.DONE) {
+      console.log("Document loaded.");
+    } else if (container.state === odf.OdfContainer.INVALID) {
+      console.error("Document could not be loaded.");
+    }
+  });
+
+  canvas.load("/documents/example.odt");
+</script>
+```
+
 ### License
 
 WebODF is a Free Software project. All code is available under the AGPL.
