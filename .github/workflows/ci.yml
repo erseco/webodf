@@ -73,6 +73,8 @@ jobs:
           make webodf.js-target
 
       - name: Run automated build validation
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
           cd build
           make webodf.js-tests
