@@ -1,0 +1,51 @@
+name: Rendering and layout fault
+description: Report document display, layout, style, image, or pagination problems.
+title: "[Rendering] "
+body:
+  - type: dropdown
+    id: document-type
+    attributes:
+      label: Document type
+      description: Which kind of file shows the rendering fault?
+      options:
+        - ODT / FODT text document
+        - ODS spreadsheet
+        - ODP presentation
+        - Other / mixed content
+    validations:
+      required: true
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: Affected library area
+      options:
+        - odf layout and style handling
+        - viewer rendering
+        - images, frames, or embedded objects
+        - tables, lists, or pagination
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Include the document used, the browser/runtime, and the exact action that shows the fault.
+      placeholder: |
+        1. Open ...
+        2. Scroll to ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected rendering
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual rendering
+    validations:
+      required: true

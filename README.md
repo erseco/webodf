@@ -44,7 +44,18 @@ Need build prerequisites or contributor details? See [README-Building.md](README
 * Get in contact:
   * Slack: webodf.slack.com, use the [self-invite](https://join.slack.com/t/webodf/shared_invite/enQtNTQ1NDAyNDU1NjY2LWFlZDg1NzBjY2IzY2RmMzhhMTcwZjM1YjJjOTRmMjM4Yzg1MzhjODY5N2MwOWQwMWNiNzhlZTVlYjI3MDY5YTc)
   * [mailing list](https://lists.opendocsociety.org/mailman/listinfo/webodf) or
-  * IRC (#webodf auf freenode, [Web access](http://webchat.freenode.net/?nick=webodfcurious_gh&channels=webodf))
+  * IRC (#webodf on freenode, [Web access](http://webchat.freenode.net/?nick=webodfcurious_gh&channels=webodf))
+
+### Reporting faults
+
+Recurring issues in the upstream `webodf/WebODF` tracker cluster around four parts of the library:
+
+* document rendering and layout
+* editor, input and collaboration behavior
+* API and framework integration
+* build, packaging and CI/tooling
+
+Use the matching issue form in this repository so the report includes the right reproduction details for the affected part of WebODF.
 
 ### License
 

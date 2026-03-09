@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Review upstream WebODF issues
+    url: https://github.com/webodf/WebODF/issues
+    about: Compare with existing upstream reports before filing a new issue in this fork.
