@@ -297,11 +297,14 @@
         return null;
     };
     /**
-     * The OdfContainer class manages the various parts that constitues an ODF
+     * The OdfContainer class manages the various parts that constitute an ODF
      * document.
-     * The constructor takes a url or a type. If urlOrType is a type, an empty
+     *
+     * Browser integrations usually observe this class indirectly through the
+     * `statereadychange` event exposed by `odf.OdfCanvas`. The constructor takes
+     * either a URL or a document type. If urlOrType is a type, an empty
      * document of that type is created. Otherwise, urlOrType is interpreted as
-     * a url and loaded from that url.
+     * a URL and loaded from that URL.
      *
      * @constructor
      * @param {!string|!odf.OdfContainer.DocumentType} urlOrType
@@ -1424,11 +1427,17 @@
             });
         }
     };
+    /** @const @type {number} Initial state before content is loaded. */
     odf.OdfContainer.EMPTY = 0;
+    /** @const @type {number} Document data is still loading. */
     odf.OdfContainer.LOADING = 1;
+    /** @const @type {number} Document finished loading and can be rendered. */
     odf.OdfContainer.DONE = 2;
+    /** @const @type {number} Document loading failed or the content is invalid. */
     odf.OdfContainer.INVALID = 3;
+    /** @const @type {number} Document is currently being saved. */
     odf.OdfContainer.SAVING = 4;
+    /** @const @type {number} Document has unsaved in-memory modifications. */
     odf.OdfContainer.MODIFIED = 5;
     /**
      * @param {!string} url
