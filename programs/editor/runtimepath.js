@@ -18,7 +18,8 @@
  * along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
  * @licend
  *
- * @source: https://github.com/erseco/webodf/
+ * @source: http://www.webodf.org/
+ * @source: https://github.com/kogmbh/WebODF/
  */
 
 (function (root, factory) {
