@@ -72,6 +72,13 @@ jobs:
           cmake .. ${{ steps.determine_version.outputs.version_arg }}
           make webodf.js-target
 
+      - name: Run automated build validation
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          cd build
+          make webodf.js-tests
+
       - name: Checkout gh-pages into deploy
         if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
         uses: actions/checkout@v6
