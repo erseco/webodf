@@ -9,6 +9,14 @@ on:
   pull_request:
     branches:
       - "**"
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+permissions:
+  contents: write
+  pull-requests: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -72,6 +80,13 @@ jobs:
           cmake .. ${{ steps.determine_version.outputs.version_arg }}
           make webodf.js-target
 
+      - name: Run automated build validation
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          cd build
+          make webodf.js-tests
+
       - name: Checkout gh-pages into deploy
         if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
         uses: actions/checkout@v6
@@ -80,18 +95,20 @@ jobs:
           ref: gh-pages
           path: deploy
 
-       - name: Prepare deployment
-         if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
-         run: |
-           set -euo pipefail
-           # Copy artifacts
-           mkdir -p deploy/webodf
-           cp build/webodf/webodf.js deploy/webodf/
-           cp -r webodf/lib deploy/webodf/
-           cp -r programs/editor deploy/
-           # cp viewer/index.html deploy/index.html
-           cp -r viewer/. deploy/
-           cp -r examples/. deploy/examples/
+      - name: Prepare deployment
+        if: |
+          (github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))) ||
+          (github.event_name == 'pull_request' && github.event.action != 'closed')
+        run: |
+          set -euo pipefail
+          # Copy artifacts
+          mkdir -p deploy/webodf
+          cp build/webodf/webodf.js deploy/webodf/
+          cp -r webodf/lib deploy/webodf/
+          cp -r programs/editor deploy/
+          # cp viewer/index.html deploy/index.html
+          cp -r viewer/. deploy/
+          cp -r examples/. deploy/examples/
 
       - name: Deploy to gh-pages
         if: github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'v'))
@@ -99,3 +116,21 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./deploy
+
+      - name: Deploy PR preview
+        if: github.event_name == 'pull_request' && github.event.action != 'closed'
+        uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1.8.1
+        with:
+          source-dir: ./deploy
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          wait-for-pages-deployment: true
+
+      - name: Remove PR preview
+        if: github.event_name == 'pull_request' && github.event.action == 'closed'
+        uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1.8.1
+        with:
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          wait-for-pages-deployment: true
+          action: remove
