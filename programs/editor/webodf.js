@@ -25,7 +25,7 @@
 /*global XMLHttpRequest, getEditorRuntimePath, runtime, WodoFromSource: true, window*/
 
 var xhr = new XMLHttpRequest(),
-    path = typeof getEditorRuntimePath === "undefined" ? "../../webodf/lib" : getEditorRuntimePath(window.location.pathname),
+    path = getEditorRuntimePath === undefined ? "../../webodf/lib" : getEditorRuntimePath(window.location.pathname),
     runtimeFilePath = path + "/runtime.js",
     code;
 

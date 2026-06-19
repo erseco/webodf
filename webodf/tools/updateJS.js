@@ -592,7 +592,9 @@ function Main(cmakeListPath) {
             // files for which jslint is not run
             jslintExceptions = [
                 "lib/externs/JSZip.js",
-                "../programs/editor/plugins/bella/seedrandom.js"].map(pathModule.normalize),
+                "../programs/editor/plugins/bella/seedrandom.js",
+                "../programs/editor/runtimepath.js",
+                "../programs/editor/runtimepath.test.js"].map(pathModule.normalize),
             // files for which the license is not checked
             licenseExceptions = [
                 "lib/HeaderCompiled.js",
