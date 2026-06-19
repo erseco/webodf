@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2026 Erseco
+ * Copyright (C) 2026 Erseco <info@ernesto.es>
  *
  * @licstart
  * This file is part of WebODF.
